@@ -163,3 +163,88 @@ input:focus { border-color: var(--neon-green); outline: none; }
 .hidden { display: none !important; }
 .active { display: block; animation: fadeUp 0.3s forwards; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- ESTILOS CAJA INSTALACIÓN (PREMIUM) --- */
+
+.install-box {
+    margin-top: 30px;
+    background: rgba(20, 20, 20, 0.6); /* Fondo semitransparente oscuro */
+    backdrop-filter: blur(10px);        /* Efecto borroso detrás (Glassmorphism) */
+    -webkit-backdrop-filter: blur(10px); /* Para Safari */
+    border: 1px solid rgba(57, 255, 20, 0.3); /* Borde verde sutil */
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 
+                0 0 15px rgba(57, 255, 20, 0.1); /* Brillo verde exterior */
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+}
+
+.install-title {
+    color: var(--neon-green);
+    font-family: 'Russo One', sans-serif;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+    opacity: 0.9;
+}
+
+.install-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 8px;
+}
+
+.brand-icon {
+    background: rgba(57, 255, 20, 0.1);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0; /* Evita que el icono se aplaste */
+}
+
+.brand-icon i {
+    color: var(--neon-green);
+    font-size: 24px;
+}
+
+.install-text {
+    font-size: 13px;
+    color: #cccccc;
+    line-height: 1.4;
+}
+
+.install-text strong {
+    color: white;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.install-text .highlight {
+    color: white;
+    font-weight: bold;
+    border-bottom: 1px dotted var(--neon-green);
+}
+
+.small-icon {
+    font-size: 14px;
+    vertical-align: middle;
+    color: var(--neon-green);
+    background: rgba(255,255,255,0.1);
+    padding: 2px;
+    border-radius: 4px;
+}
+
+.install-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(57, 255, 20, 0.3), transparent);
+    margin: 12px 0;
+}
