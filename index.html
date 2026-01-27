@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <title>BCN Fitness</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="splash-screen">
+        <img src="logo.png" alt="BCN Fitness" class="pulse-logo">
+        <h1 class="logo-text">BCN FITNESS</h1>
+    </div>
+
+    <header id="app-header" class="hidden">
+        <h2 id="page-title">DASHBOARD</h2>
+        <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
+    </header>
+
+    <main id="main-container">
+        
+        <section id="view-login" class="view active">
+            <div class="login-wrapper">
+                <img src="logo.png" alt="Logo" width="120" class="login-logo">
+                <h1>BCN FITNESS</h1>
+                <form id="login-form">
+                    <div class="input-group">
+                        <i class="material-icons-round">email</i>
+                        <input type="email" id="login-email" placeholder="Email" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="material-icons-round">lock</i>
+                        <input type="password" id="login-password" placeholder="Contraseña" required>
+                    </div>
+                    <button type="submit" class="btn-primary">ENTRAR</button>
+                </form>
+                <p class="text-link" onclick="app.navTo('register')">Crear cuenta de Atleta</p>
+                
+                <div class="install-hint">
+                    <p>📲 <strong>Instalar App:</strong> Pulsa <i class="material-icons-round">ios_share</i> y "Añadir a inicio"</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-register" class="view hidden">
+            <h2 class="section-title">NUEVO ATLETA</h2>
+            <form id="register-form">
+                <input type="text" id="reg-name" placeholder="Nombre Completo" required>
+                <input type="email" id="reg-email" placeholder="Email" required>
+                <input type="password" id="reg-pass" placeholder="Contraseña" required>
+                <div class="row">
+                    <input type="number" id="reg-age" placeholder="Edad" required style="width: 48%">
+                    <select id="reg-sex" style="width: 48%">
+                        <option value="male">Hombre</option>
+                        <option value="female">Mujer</option>
+                    </select>
+                </div>
+                <input type="text" id="reg-code" placeholder="CÓDIGO SECRETO" required class="input-code">
+                <button type="submit" class="btn-primary">REGISTRARSE</button>
+                <button type="button" class="btn-text" onclick="app.navTo('login')">Cancelar</button>
+            </form>
+        </section>
+
+        <section id="view-dashboard" class="view hidden">
+            <div id="pending-approval" class="hidden warning-box">
+                ⚠️ Tu cuenta espera aprobación del Coach.
+            </div>
+            
+            <div id="coach-dashboard" class="hidden">
+                <h3>Panel de Coach</h3>
+                <button class="btn-secondary" onclick="app.navTo('users-list')">Gestionar Atletas</button>
+                <button class="btn-secondary" onclick="app.navTo('create-routine')">Crear Rutina</button>
+            </div>
+
+            <div id="athlete-dashboard">
+                <h3>Tus Rutinas</h3>
+                <div id="routines-list" class="card-list"></div>
+            </div>
+        </section>
+
+        <section id="view-workout" class="view hidden">
+            <div class="workout-sticky-header">
+                <div class="timer-box">
+                    <span class="timer-label">TIEMPO</span>
+                    <span id="global-timer">00:00</span>
+                </div>
+                <button onclick="workoutManager.finishWorkout()" class="btn-finish">FINALIZAR</button>
+            </div>
+            
+            <div id="active-exercises-container"></div>
+            
+            <div class="workout-notes">
+                <h4>Notas del entreno</h4>
+                <textarea id="workout-notes" placeholder="Sensaciones, molestias..."></textarea>
+                <div class="rpe-slider">
+                    <label>RPE (Esfuerzo 1-10): <span id="rpe-val">7</span></label>
+                    <input type="range" min="1" max="10" value="7" oninput="document.getElementById('rpe-val').innerText=this.value" id="workout-rpe">
+                </div>
+            </div>
+        </section>
+
+        <section id="view-profile" class="view hidden">
+            <div class="profile-header">
+                <div class="avatar-circle" id="profile-initials">AB</div>
+                <h2 id="profile-name">Cargando...</h2>
+            </div>
+
+            <div class="section-card">
+                <h3>Progreso Visual</h3>
+                <div class="photo-compare">
+                    <div class="photo-box">
+                        <span>ANTES</span>
+                        <input type="file" id="photo-before-input" hidden>
+                        <img id="img-before" src="assets/placeholder-body.png" onclick="document.getElementById('photo-before-input').click()">
+                    </div>
+                    <div class="photo-box">
+                        <span>AHORA</span>
+                        <input type="file" id="photo-after-input" hidden>
+                        <img id="img-after" src="assets/placeholder-body.png" onclick="document.getElementById('photo-after-input').click()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h3>Peso Corporal</h3>
+                <div class="chart-container">
+                    <canvas id="weightChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="section-card">
+                <h3>Equilibrio Muscular (Volumen)</h3>
+                <div class="chart-container">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="rest-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3 class="blink">DESCANSANDO</h3>
+            <div id="rest-countdown">01:30</div>
+            <div class="modal-actions">
+                <button onclick="workoutManager.adjustRest(-10)">-10s</button>
+                <button onclick="workoutManager.stopRest()" class="btn-primary">¡A DARLE!</button>
+                <button onclick="workoutManager.adjustRest(+10)">+10s</button>
+            </div>
+        </div>
+    </div>
+
+    <nav id="bottom-nav" class="hidden">
+        <a onclick="app.navTo('dashboard')" class="nav-item active">
+            <i class="material-icons-round">dashboard</i>
+            <span>Inicio</span>
+        </a>
+        <a onclick="app.navTo('workout')" class="nav-item big-icon">
+            <div class="play-circle"><i class="material-icons-round">play_arrow</i></div>
+        </a>
+        <a onclick="app.navTo('profile')" class="nav-item">
+            <i class="material-icons-round">person</i>
+            <span>Perfil</span>
+        </a>
+    </nav>
+
+    <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
