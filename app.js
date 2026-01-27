@@ -1,10 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES, TEMPLATE_ROUTINES } from './data.js';
 
-// --- CONFIGURACIÓN FIREBASE ---
-// ¡¡PEGA AQUÍ TUS CLAVES REALES DE LA CONSOLA DE FIREBASE!!
+// --- CONFIGURACIÓN FIREBASE (TUS CLAVES INTEGRADAS) ---
 const firebaseConfig = {
   apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
   authDomain: "bcn-fitness.firebaseapp.com",
@@ -14,7 +13,7 @@ const firebaseConfig = {
   appId: "1:193657523158:web:2c50129da8a4e7a07cf277"
 };
 
-// Inicialización (SOLO PUEDE OCURRIR UNA VEZ)
+// Inicialización
 const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
@@ -42,14 +41,13 @@ const app = {
                         state.profile = docSnap.data();
                         app.handleLoginSuccess();
                     } else {
-                        console.error("Usuario autenticado pero sin perfil en DB");
-                        // Opcional: Crear perfil básico si falta
-                        state.profile = { name: user.email.split('@')[0], role: 'athlete', approved: false };
+                        console.error("Usuario sin perfil");
+                        // Crear perfil básico de emergencia
+                        state.profile = { name: 'Atleta', role: 'athlete', approved: false };
                         app.handleLoginSuccess();
                     }
                 } catch (e) {
                     console.error("Error cargando perfil:", e);
-                    // Intentar entrar de todas formas
                     app.hideSplash();
                 }
             } else {
@@ -59,11 +57,10 @@ const app = {
             }
         });
 
-        // Event Listeners Globales
+        // Listeners Globales
         const logoutBtn = document.getElementById('logout-btn');
         if(logoutBtn) logoutBtn.addEventListener('click', () => signOut(auth));
         
-        // Forms
         const loginForm = document.getElementById('login-form');
         if(loginForm) loginForm.addEventListener('submit', app.handleLogin);
         
@@ -71,29 +68,38 @@ const app = {
         if(regForm) regForm.addEventListener('submit', app.handleRegister);
     },
 
-    handleLoginSuccess: async () => {
-        const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
-        if(saved) {
-            workoutManager.resumeWorkout(JSON.parse(saved));
-        } else {
+    handleLoginSuccess: () => {
+        // Recuperar entreno si existe
+        try {
+            const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
+            if(saved) {
+                workoutManager.resumeWorkout(JSON.parse(saved));
+            } else {
+                app.navTo('dashboard');
+                dashboard.render();
+            }
+        } catch (e) {
+            console.error("Error localStorage", e);
             app.navTo('dashboard');
-            dashboard.render();
         }
         app.hideSplash();
     },
 
     navTo: (viewId) => {
+        // Ocultar todas las vistas
         document.querySelectorAll('.view').forEach(el => {
             el.classList.remove('active');
             el.classList.add('hidden');
         });
         
+        // Mostrar objetivo
         const target = document.getElementById(`view-${viewId}`);
         if(target) {
             target.classList.remove('hidden');
             target.classList.add('active');
         }
 
+        // UI Header/Footer
         const isAuth = ['login', 'register'].includes(viewId);
         const header = document.getElementById('app-header');
         const nav = document.getElementById('bottom-nav');
@@ -101,6 +107,7 @@ const app = {
         if(header) header.classList.toggle('hidden', isAuth);
         if(nav) nav.classList.toggle('hidden', isAuth || viewId === 'workout');
 
+        // Actualizar iconos nav
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         if(viewId === 'dashboard') {
             const el = document.querySelector('[onclick*="dashboard"]');
@@ -124,10 +131,9 @@ const app = {
     handleLogin: async (e) => {
         e.preventDefault();
         try {
-            await signInWithEmailAndPassword(auth, 
-                document.getElementById('login-email').value,
-                document.getElementById('login-password').value
-            );
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            await signInWithEmailAndPassword(auth, email, pass);
         } catch (err) { alert("Error Login: " + err.message); }
     },
 
@@ -146,7 +152,7 @@ const app = {
                 name: document.getElementById('reg-name').value,
                 role: 'athlete',
                 approved: false,
-                stats: { weight: [], muscle: {} }
+                createdAt: new Date()
             });
         } catch (err) { alert("Error registro: " + err.message); }
     }
@@ -154,7 +160,7 @@ const app = {
 
 // --- LOGICA DASHBOARD ---
 const dashboard = {
-    render: async () => {
+    render: () => {
         if(state.profile && !state.profile.approved && state.profile.role !== 'admin') {
             const warn = document.getElementById('pending-approval');
             if(warn) warn.classList.remove('hidden');
@@ -168,12 +174,12 @@ const dashboard = {
             const card = document.createElement('div');
             card.className = 'exercise-card';
             card.innerHTML = `
-                <div style="display:flex; justify-content:space-between">
+                <div style="display:flex; justify-content:space-between; align-items:center">
                     <h3>${r.name}</h3>
                     <i class="material-icons-round" style="color:#39ff14">fitness_center</i>
                 </div>
-                <p style="color:#888">${r.exercises.length} Ejercicios</p>
-                <button class="btn-primary" onclick="workoutManager.start('${r.name}', ${idx})">ENTRENAR</button>
+                <p style="color:#888; font-size:14px">${r.exercises.length} Ejercicios</p>
+                <button class="btn-primary" style="margin-top:10px" onclick="workoutManager.start('${r.name}', ${idx})">ENTRENAR</button>
             `;
             container.appendChild(card);
         });
@@ -188,6 +194,7 @@ const workoutManager = {
             name: name,
             startTime: Date.now(),
             exercises: template.exercises.map(exName => {
+                // Buscar info del ejercicio
                 const info = EXERCISES.find(e => e.n === exName) || {n: exName, m:'?', img:''};
                 return { ...info, sets: [] };
             })
@@ -216,9 +223,12 @@ const workoutManager = {
             const div = document.createElement('div');
             div.className = 'exercise-card';
             
+            // Imagen con fallback para evitar error 404 rompiendo el layout
+            const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
+            
             let html = `
                 <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
-                    <img src="assets/muscles/${ex.img || 'cuadriceps.png'}" width="40" style="border-radius:4px" onerror="this.src='assets/placeholder-body.png'">
+                    <img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'">
                     <div>
                         <h3 style="font-size:16px; margin:0">${ex.n}</h3>
                         <small style="color:#39ff14">${ex.m}</small>
@@ -226,13 +236,14 @@ const workoutManager = {
                     ${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}
                 </div>
                 <div id="sets-list-${exIdx}"></div>
-                <button class="btn-text" style="width:100%; margin-top:10px; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button>
+                <button class="btn-text" style="width:100%; margin-top:10px; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ SERIE</button>
             `;
             div.innerHTML = html;
             container.appendChild(div);
             workoutManager.renderSets(exIdx);
         });
         
+        // Auto scroll al final
         setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 100);
     },
 
@@ -292,7 +303,7 @@ const workoutManager = {
             if(display) display.innerText = `${m}:${s}`;
             
             if(remaining <= 0) {
-                if(state.sounds.beep) state.sounds.beep.play();
+                if(state.sounds.beep) state.sounds.beep.play().catch(()=>{});
                 if(navigator.vibrate) navigator.vibrate([200,100,200]);
                 workoutManager.stopRest();
             }
@@ -306,8 +317,8 @@ const workoutManager = {
     },
 
     adjustRest: (amount) => {
-        // Simple implementación para evitar error
-        alert("Ajuste rápido no activo en demo");
+        // En una futura versión esto sumaría tiempo al contador actual
+        console.log("Ajuste de descanso pendiente de implementar");
     },
 
     startGlobalTimer: () => {
@@ -355,11 +366,13 @@ const profile = {
         
         if(nameEl) nameEl.innerText = state.profile.name;
         if(initEl) initEl.innerText = state.profile.name.substring(0,2).toUpperCase();
-        
-        // Charts omitidos por brevedad, se pueden añadir luego
+        // Charts omitidos
     }
 };
 
+// Exponer al window para que el HTML pueda llamar a estas funciones
 window.app = app;
 window.workoutManager = workoutManager;
+
+// Iniciar app
 app.init();
