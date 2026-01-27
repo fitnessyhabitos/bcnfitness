@@ -6,17 +6,17 @@
     --text-white: #ffffff;
     --text-gray: #a0a0a0;
     --danger: #ff3b30;
-    --nav-height: 80px; /* Más alto para toque fácil */
+    --nav-height: 80px;
     --header-height: 60px;
 }
 
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
-    user-select: none; /* Sensación app */
+    user-select: none;
 }
 
-/* FIX iOS SCROLL */
+/* --- BASE & FIX iOS SCROLL --- */
 html, body {
     height: 100%;
     width: 100%;
@@ -24,23 +24,28 @@ html, body {
     background-color: var(--dark-bg);
     font-family: 'Roboto', sans-serif;
     color: var(--text-white);
-    overflow: hidden; /* Bloquea el body entero */
+    overflow: hidden; /* Bloquea el body para evitar rebote */
     position: fixed;
 }
 
-h1, h2, h3, .logo-text { font-family: 'Russo One', sans-serif; letter-spacing: 1px; }
+h1, h2, h3, h4, .logo-text, .install-title { 
+    font-family: 'Russo One', sans-serif; 
+    letter-spacing: 1px; 
+    margin-top: 0;
+}
 
-/* Contenedor scrolleable interno */
+/* Contenedor principal con scroll interno */
 #main-container {
     height: 100%;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding: calc(var(--header-height) + 20px) 16px calc(var(--nav-height) + 20px);
 }
-/* Ocultar scrollbar */
 #main-container::-webkit-scrollbar { display: none; }
 
-/* Componentes UI */
+/* --- COMPONENTES UI --- */
+
+/* Botones */
 .btn-primary {
     background: var(--neon-green);
     color: black;
@@ -53,17 +58,52 @@ h1, h2, h3, .logo-text { font-family: 'Russo One', sans-serif; letter-spacing: 1
     text-transform: uppercase;
     font-family: 'Russo One';
     box-shadow: 0 4px 15px rgba(57, 255, 20, 0.3);
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.btn-secondary {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    width: 100%;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 5px;
 }
 
 .btn-finish {
-    background: var(--danger);
-    color: white;
+    background: var(--neon-green);
+    color: black;
     border: none;
     padding: 8px 16px;
     border-radius: 4px;
     font-weight: bold;
+    font-family: 'Russo One';
 }
 
+/* Botón CANCELAR (Rojo Outline) */
+.btn-danger-outline {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-text {
+    background: none; border: none; color: var(--text-gray); cursor: pointer; margin-top: 10px; width: 100%;
+}
+.icon-btn {
+    background: none; border: none; color: white; cursor: pointer;
+}
+.icon-btn i { font-size: 28px; }
+
+/* Inputs & Forms */
 input, select, textarea {
     background: var(--input-bg);
     border: 1px solid #333;
@@ -74,10 +114,10 @@ input, select, textarea {
     font-size: 16px;
     margin-bottom: 12px;
 }
-input:focus { border-color: var(--neon-green); outline: none; }
+input:focus, select:focus, textarea:focus { border-color: var(--neon-green); outline: none; }
 
 /* Tarjetas */
-.exercise-card {
+.exercise-card, .section-card {
     background: var(--card-bg);
     border-radius: 12px;
     padding: 16px;
@@ -85,10 +125,47 @@ input:focus { border-color: var(--neon-green); outline: none; }
     border-left: 4px solid var(--neon-green);
 }
 
+.warning-box {
+    background: rgba(255, 165, 0, 0.2);
+    color: orange;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid orange;
+    text-align: center;
+}
+
+/* --- VISTAS ESPECÍFICAS --- */
+
+/* Login */
+.login-wrapper { text-align: center; padding-top: 20px; }
+.login-logo { margin-bottom: 10px; }
+.input-group { position: relative; }
+.input-group i { position: absolute; left: 15px; top: 15px; color: #666; }
+.input-group input { padding-left: 45px; }
+
+/* Workout Mode */
+.workout-sticky-header {
+    position: sticky;
+    top: -20px; /* Hack para que se pegue arriba del scroll */
+    background: rgba(0,0,0,0.9);
+    backdrop-filter: blur(5px);
+    z-index: 50;
+    padding: 10px 0;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.timer-box { display: flex; flex-direction: column; }
+.timer-label { font-size: 10px; color: #888; }
+#global-timer { font-family: 'Russo One'; font-size: 24px; color: white; }
+
 /* Sets Grid */
 .set-row {
     display: grid;
-    grid-template-columns: 0.5fr 1fr 1fr 1fr 0.5fr; /* Idx, Prev, Kg, Reps, Check */
+    grid-template-columns: 0.5fr 1fr 1fr 0.5fr; /* Index, Kg, Reps, Check */
     gap: 8px;
     align-items: center;
     margin-top: 8px;
@@ -96,19 +173,58 @@ input:focus { border-color: var(--neon-green); outline: none; }
     background: #080808;
     border-radius: 6px;
 }
-.set-row input { margin: 0; padding: 8px; text-align: center; font-weight: bold;}
-.set-completed { opacity: 0.5; pointer-events: none; }
+.set-row input { margin: 0; padding: 8px; text-align: center; font-weight: bold; font-size: 18px; }
+.set-completed { opacity: 0.4; pointer-events: none; }
 
-/* Checkbox custom */
+/* Checkbox Neon */
 .check-box {
-    width: 25px; height: 25px;
+    width: 30px; height: 30px;
     border: 2px solid var(--neon-green);
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    margin: 0 auto;
 }
 .check-box.checked { background: var(--neon-green); }
 
-/* Navigation */
+/* Sliders */
+.rpe-slider { margin-top: 20px; text-align: center; }
+.rpe-slider input { width: 100%; accent-color: var(--neon-green); margin-top: 10px; }
+
+/* --- PERFIL & GRÁFICAS --- */
+.profile-header {
+    text-align: center; margin-bottom: 30px;
+}
+.avatar-circle {
+    width: 80px; height: 80px;
+    background: #222;
+    color: var(--neon-green);
+    border: 2px solid var(--neon-green);
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-family: 'Russo One';
+    font-size: 28px;
+    margin: 0 auto 10px;
+}
+.chart-container {
+    position: relative;
+    height: 250px;
+    width: 100%;
+}
+
+/* --- HEADER & NAV --- */
+#app-header {
+    height: var(--header-height);
+    position: fixed; top: 0; width: 100%;
+    background: rgba(18,18,18,0.95);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid #333;
+}
+#page-title { font-size: 18px; margin: 0; }
+
 #bottom-nav {
     position: fixed; bottom: 0; width: 100%; height: var(--nav-height);
     background: rgba(18,18,18,0.95);
@@ -116,12 +232,12 @@ input:focus { border-color: var(--neon-green); outline: none; }
     display: flex; justify-content: space-around; align-items: center;
     border-top: 1px solid #333;
     z-index: 100;
-    padding-bottom: 15px; /* Para iPhone sin botón home */
+    padding-bottom: 15px;
 }
 .nav-item {
     color: var(--text-gray);
     display: flex; flex-direction: column; align-items: center;
-    font-size: 12px; text-decoration: none;
+    font-size: 12px; text-decoration: none; cursor: pointer;
 }
 .nav-item.active { color: var(--neon-green); }
 .big-icon .play-circle {
@@ -133,118 +249,73 @@ input:focus { border-color: var(--neon-green); outline: none; }
     transform: translateY(-10px);
 }
 
-/* Modal */
+/* --- MODAL DESCANSO --- */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.95);
     z-index: 200;
     display: flex; justify-content: center; align-items: center;
 }
-.modal-content { text-align: center; width: 80%; }
-#rest-countdown { font-size: 80px; font-family: 'Russo One'; color: var(--neon-green); }
+.modal-content { text-align: center; width: 85%; }
+#rest-countdown { font-size: 80px; font-family: 'Russo One'; color: var(--neon-green); margin: 20px 0; }
+.modal-actions { display: flex; gap: 10px; justify-content: center; }
+.modal-actions button { width: auto; padding: 10px 20px; font-size: 14px; margin: 0; }
+.blink { animation: blinker 1.5s linear infinite; color: var(--text-gray); }
+@keyframes blinker { 50% { opacity: 0; } }
 
-/* Splash */
+/* --- SPLASH SCREEN --- */
 #splash-screen {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: black; z-index: 9999;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     transition: opacity 0.5s;
 }
-.pulse-logo {
-    width: 150px;
-    animation: pulse 2s infinite;
-}
+.pulse-logo { width: 150px; animation: pulse 2s infinite; }
 @keyframes pulse {
     0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); }
     70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(57, 255, 20, 0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); }
 }
 
+/* --- UTILITIES --- */
 .hidden { display: none !important; }
 .active { display: block; animation: fadeUp 0.3s forwards; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.row { display: flex; justify-content: space-between; gap: 10px; }
 
-/* --- ESTILOS CAJA INSTALACIÓN (PREMIUM) --- */
-
+/* --- CAJA INSTALACIÓN PREMIUM (Glassmorphism) --- */
 .install-box {
     margin-top: 30px;
-    background: rgba(20, 20, 20, 0.6); /* Fondo semitransparente oscuro */
-    backdrop-filter: blur(10px);        /* Efecto borroso detrás (Glassmorphism) */
-    -webkit-backdrop-filter: blur(10px); /* Para Safari */
-    border: 1px solid rgba(57, 255, 20, 0.3); /* Borde verde sutil */
+    background: rgba(20, 20, 20, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(57, 255, 20, 0.3);
     border-radius: 16px;
     padding: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 
-                0 0 15px rgba(57, 255, 20, 0.1); /* Brillo verde exterior */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(57, 255, 20, 0.1);
     max-width: 400px;
     margin-left: auto;
     margin-right: auto;
     text-align: left;
 }
-
 .install-title {
     color: var(--neon-green);
-    font-family: 'Russo One', sans-serif;
     font-size: 14px;
     text-align: center;
-    margin-top: 0;
     margin-bottom: 15px;
-    letter-spacing: 1px;
     opacity: 0.9;
 }
-
-.install-row {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 8px;
-}
-
+.install-row { display: flex; align-items: center; gap: 15px; margin-bottom: 12px; }
 .brand-icon {
     background: rgba(57, 255, 20, 0.1);
-    width: 40px;
-    height: 40px;
+    width: 40px; height: 40px;
     border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-shrink: 0; /* Evita que el icono se aplaste */
+    display: flex; justify-content: center; align-items: center;
+    flex-shrink: 0;
 }
-
-.brand-icon i {
-    color: var(--neon-green);
-    font-size: 24px;
-}
-
-.install-text {
-    font-size: 13px;
-    color: #cccccc;
-    line-height: 1.4;
-}
-
-.install-text strong {
-    color: white;
-    display: block;
-    margin-bottom: 2px;
-}
-
-.install-text .highlight {
-    color: white;
-    font-weight: bold;
-    border-bottom: 1px dotted var(--neon-green);
-}
-
-.small-icon {
-    font-size: 14px;
-    vertical-align: middle;
-    color: var(--neon-green);
-    background: rgba(255,255,255,0.1);
-    padding: 2px;
-    border-radius: 4px;
-}
-
-.install-divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(57, 255, 20, 0.3), transparent);
-    margin: 12px 0;
-}
+.brand-icon i { color: var(--neon-green); font-size: 24px; }
+.install-text { font-size: 13px; color: #cccccc; line-height: 1.4; }
+.install-text strong { color: white; }
+.install-text .highlight { color: white; font-weight: bold; border-bottom: 1px dotted var(--neon-green); }
+.small-icon { font-size: 14px; vertical-align: middle; color: var(--neon-green); background: rgba(255,255,255,0.1); padding: 2px; border-radius: 4px; }
+.install-divider { height: 1px; background: linear-gradient(90deg, transparent, rgba(57, 255, 20, 0.3), transparent); margin: 10px 0; }
