@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// TUS CLAVES - NO LAS CAMBIES
+// --- CONFIG ---
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -19,27 +19,20 @@ const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
 
+// --- GESTORES ---
 const app = {
     init: () => {
-        // Seguro para el logo por si Firebase tarda
-        setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 4000);
-
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
-                try {
-                    const docSnap = await getDoc(doc(db, "users", user.uid));
-                    if(docSnap.exists()) {
-                        state.profile = docSnap.data();
-                        if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
-                        if(!state.profile.records) state.profile.records = {};
-                        app.handleLoginSuccess();
-                    } else { signOut(auth); }
-                } catch(e) { console.error(e); }
-            } else {
-                app.navTo('login');
-                document.getElementById('splash-screen').classList.add('hidden');
-            }
+                const docSnap = await getDoc(doc(db, "users", user.uid));
+                if(docSnap.exists()) {
+                    state.profile = docSnap.data();
+                    if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
+                    if(!state.profile.records) state.profile.records = {};
+                    app.handleLoginSuccess();
+                } else { signOut(auth); }
+            } else { app.navTo('login'); setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500); }
         });
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
@@ -57,25 +50,29 @@ const app = {
         } catch(e) { alert(e.message); }
     },
     handleLoginSuccess: () => {
-        const adminBtn = document.getElementById('admin-btn');
-        if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.loadUsers(); } else { adminBtn.classList.add('hidden'); }
+        const btn = document.getElementById('admin-btn');
+        if(state.profile.role === 'admin' || state.profile.role === 'coach') { btn.classList.remove('hidden'); admin.loadUsers(); } else { btn.classList.add('hidden'); }
+        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         document.getElementById('splash-screen').classList.add('hidden');
     },
-    navTo: (viewId) => {
+    navTo: (view) => {
         document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
-        document.getElementById('view-'+viewId).classList.remove('hidden'); document.getElementById('view-'+viewId).classList.add('active');
-        const isAuth = ['login', 'register'].includes(viewId);
+        document.getElementById('view-'+view).classList.remove('hidden'); document.getElementById('view-'+view).classList.add('active');
+        const isAuth = ['login', 'register'].includes(view);
         document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
-        if(viewId === 'dashboard') dashboard.render();
-        if(viewId === 'profile') profile.render();
-        if(viewId === 'profile') profile.loadHistory();
+        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || view === 'workout');
+        if(view === 'dashboard') { document.querySelector('[onclick*="dashboard"]').classList.add('active'); dashboard.render(); }
+        else document.querySelector('[onclick*="dashboard"]').classList.remove('active');
+        if(view === 'profile') { document.querySelector('[onclick*="profile"]').classList.add('active'); profile.render(); }
+        else document.querySelector('[onclick*="profile"]').classList.remove('active');
     },
+    // FIX: USAR EMOJIS DIRECTOS
     showToast: (msg, type='normal') => {
         const div = document.createElement('div'); div.className = `toast ${type}`;
-        div.innerHTML = `<i>${type==='gold'?'emoji_events':'check'}</i> ${msg}`;
+        const icon = type==='gold' ? '🏆' : '✅';
+        div.innerHTML = `<span style="font-size:20px; margin-right:10px">${icon}</span> ${msg}`;
         document.getElementById('toast-container').appendChild(div); setTimeout(()=>div.remove(), 3000);
     }
 };
@@ -101,26 +98,21 @@ const admin = {
     toggleApproval: async (uid, st) => { await updateDoc(doc(db, "users", uid), { approved: st }); admin.loadUsers(); },
     viewClient: async (uid) => {
         state.currentClientId = uid;
-        const user = state.allClients.find(c => c.id === uid);
-        if(!user) return;
+        const user = state.allClients.find(c => c.id === uid); if(!user) return;
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
-        
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
-        
-        // Historial sin error de indice
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
-        const snap = await getDocs(q);
-        const workouts = []; snap.forEach(d => workouts.push(d.data()));
+        const snapshot = await getDocs(q);
+        const workouts = []; snapshot.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
-        
         hList.innerHTML = ''; const mCounts = {};
-        if(workouts.length===0) hList.innerHTML = '<p>Sin historial</p>';
+        if(workouts.length===0) hList.innerHTML = '<p style="text-align:center">Sin historial</p>';
         workouts.slice(0,10).forEach(w => {
             const d = new Date(w.date.seconds*1000).toLocaleDateString();
             if(w.data.exercises) w.data.exercises.forEach(e => mCounts[e.m] = (mCounts[e.m]||0)+1);
@@ -202,15 +194,10 @@ const dashboard = {
             div.innerHTML += `<div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p></div>`;
         });
     },
-    // LOGICA SEMANA CORREGIDA (Lunes exacto)
     calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
         try {
-            const now = new Date();
-            const day = now.getDay() || 7;
-            const start = new Date(now);
-            start.setHours(0,0,0,0);
-            start.setDate(now.getDate() - day + 1); // Lunes de esta semana a las 00:00
-            
+            const now = new Date(); const day = now.getDay() || 7;
+            const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
             const q = query(collection(db, "workouts"), where("userId", "==", uid));
             const snap = await getDocs(q);
             let count = 0;
@@ -224,7 +211,7 @@ const dashboard = {
 const workoutManager = {
     start: async (rid, rname) => {
         try {
-            const docSnap = await getDoc(doc(db, "routines", rid)); const data = docSnap.data();
+            const docRef = await getDoc(doc(db, "routines", rid)); const routineData = docRef.data();
             state.lastWorkoutData = null;
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
             const snap = await getDocs(q); const workouts = [];
@@ -266,10 +253,20 @@ const workoutManager = {
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
+            if(s.kg && s.reps) {
+                const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
+                const name = state.activeWorkout.exercises[ei].n;
+                if(!state.profile.records) state.profile.records = {};
+                if(oneRM > (state.profile.records[name] || 0)) {
+                    state.profile.records[name] = oneRM;
+                    updateDoc(doc(db, "users", state.user.uid), { [`records.${name}`]: oneRM });
+                    app.showToast(`¡RÉCORD! ${name} (${oneRM}kg)`, 'gold');
+                    if(window.confetti) window.confetti();
+                }
+            }
         }
         workoutManager.saveLocal(); workoutManager.uiInit();
     },
-    saveLocal: () => localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)),
     startRest: (sec) => {
         document.getElementById('rest-modal').classList.remove('hidden');
         let r = sec;
@@ -288,16 +285,14 @@ const workoutManager = {
     stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
     cancelWorkout: () => { if(confirm("¿Cancelar?")) { localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{}); app.navTo('dashboard'); } },
     openFinishModal: () => document.getElementById('finish-modal').classList.remove('hidden'),
-    
-    // GUARDADO SEGURO
     confirmFinish: async (rpe) => {
         document.getElementById('finish-modal').classList.add('hidden');
-        if(!state.user || !state.activeWorkout) return alert("Error: Sesión perdida. Recarga.");
+        if(!state.user || !state.activeWorkout) return alert("Error: No hay sesión");
         try {
             await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpe, notes: document.getElementById('final-notes').value });
             localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{});
             app.showToast("¡Entreno Guardado!", "gold"); if(window.confetti) window.confetti(); app.navTo('dashboard');
-        } catch(e) { alert("Error al guardar: " + e.message); }
+        } catch(e) { alert("Error: " + e.message); }
     }
 };
 
@@ -309,7 +304,6 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         profile.renderCharts(); profile.loadRadar();
-        // Cargar historial si estamos en la pestaña
         if(!document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
     },
     loadRadar: async () => {
@@ -321,7 +315,7 @@ const profile = {
     },
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
-        if(w) { await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m}) }); alert("Guardado"); profile.renderCharts(); }
+        if(w) { await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m}) }); alert("Guardado"); }
     },
     saveSettings: async () => {
         const g = parseInt(document.getElementById('conf-weekly-goal').value); const r = parseInt(document.getElementById('conf-rest-time').value);
@@ -360,7 +354,7 @@ const chartHelpers = {
     renderLine: (id, data, field, color) => {
         const ctx = document.getElementById(id); if(!ctx) return;
         const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>new Date(d.date.seconds*1000).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
+        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>new Date(d.date.seconds*1000).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#222' } } } } });
     },
     renderRadar: (id, counts) => {
         const ctx = document.getElementById(id); if(!ctx) return;
