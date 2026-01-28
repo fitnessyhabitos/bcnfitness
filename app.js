@@ -17,14 +17,13 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
+const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null };
 
-// --- HELPER NORMALIZAR TEXTO (Buscador) ---
+// HELPER NORMALIZAR TEXTO
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const app = {
     init: () => {
-        // Seguro para el logo por si Firebase tarda
         setTimeout(() => { const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none'; }, 4000);
 
         onAuthStateChanged(auth, async (user) => {
@@ -47,7 +46,15 @@ const app = {
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
-        document.getElementById('exercise-search').addEventListener('input', (e) => admin.filterExercises(e.target.value));
+        
+        // BUSCADOR MEJORADO
+        const searchInput = document.getElementById('exercise-search');
+        searchInput.addEventListener('input', (e) => admin.searchExercises(e.target.value));
+        searchInput.addEventListener('focus', () => admin.searchExercises(searchInput.value));
+        // Cerrar al clicar fuera
+        document.addEventListener('click', (e) => {
+            if(!e.target.closest('.exercise-selector')) document.getElementById('search-results-container').classList.add('hidden');
+        });
     },
     login: async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } catch(e) { alert(e.message); } },
     register: async () => {
@@ -85,7 +92,114 @@ const app = {
 };
 
 const admin = {
-    refreshAll: () => { admin.renderExerciseSelect(); admin.loadUsers(); admin.renderExistingRoutines(); },
+    refreshAll: () => { admin.loadUsers(); admin.renderExistingRoutines(); },
+    
+    // --- BUSCADOR VISUAL ---
+    searchExercises: (term) => {
+        const container = document.getElementById('search-results-container');
+        container.innerHTML = '';
+        container.classList.remove('hidden');
+        
+        const normTerm = normalizeText(term);
+        const results = EXERCISES.filter(e => normalizeText(e.n).includes(normTerm));
+        
+        if(results.length === 0) {
+            container.innerHTML = '<div style="padding:10px; color:#888">No hay resultados</div>';
+            return;
+        }
+
+        results.forEach((ex, idx) => {
+            // ENCONTRAR INDICE REAL EN EXERCISES
+            const realIdx = EXERCISES.indexOf(ex);
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `<img src="assets/muscles/${ex.img}" width="30" height="30" style="border-radius:4px; background:#000"><span>${ex.n}</span>`;
+            div.onclick = () => {
+                admin.addExerciseToRoutine(realIdx);
+                container.classList.add('hidden');
+                document.getElementById('exercise-search').value = '';
+            };
+            container.appendChild(div);
+        });
+    },
+
+    addExerciseToRoutine: (idx) => {
+        // 5 SERIES (20-16-16-16-16)
+        state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
+        admin.renderPreview(); 
+    },
+
+    renderPreview: () => { 
+        const div = document.getElementById('admin-routine-preview');
+        div.innerHTML = state.newRoutine.map((e, exIdx) => `
+            <div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px">
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                    <div style="display:flex; align-items:center; gap:10px">
+                        <img src="assets/muscles/${e.img}" width="30" height="30" style="border-radius:4px; background:#000">
+                        <strong>${e.n}</strong>
+                    </div>
+                    <span style="color:#ff3b30; cursor:pointer" onclick="window.admin.removeEx(${exIdx})">x</span>
+                </div>
+                <div style="font-size:12px; margin-top:5px; display:flex; align-items:center; gap:10px">
+                    <span>${e.defaultSets.length} Series</span>
+                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, 1)">+</button>
+                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, -1)">-</button>
+                </div>
+            </div>`).join(''); 
+    },
+    removeEx: (i) => { state.newRoutine.splice(i, 1); admin.renderPreview(); },
+    modSets: (i, delta) => {
+        if(delta > 0) state.newRoutine[i].defaultSets.push({reps:16});
+        else if(state.newRoutine[i].defaultSets.length > 1) state.newRoutine[i].defaultSets.pop();
+        admin.renderPreview();
+    },
+
+    // --- EDICIÓN Y GUARDADO ---
+    editRoutine: async (id) => {
+        const docSnap = await getDoc(doc(db, "routines", id));
+        const r = docSnap.data();
+        state.editingRoutineId = id;
+        state.newRoutine = r.exercises;
+        
+        document.getElementById('new-routine-name').value = r.name;
+        document.getElementById('assign-client-select').value = r.assignedTo;
+        document.getElementById('routine-editor-title').innerText = "Editando: " + r.name;
+        document.getElementById('save-routine-btn').innerText = "ACTUALIZAR";
+        document.getElementById('cancel-edit-btn').classList.remove('hidden');
+        
+        admin.renderPreview();
+        document.getElementById('routine-editor-card').scrollIntoView({behavior: 'smooth'});
+    },
+
+    cancelEdit: () => {
+        state.editingRoutineId = null;
+        state.newRoutine = [];
+        document.getElementById('new-routine-name').value = '';
+        document.getElementById('assign-client-select').value = '';
+        document.getElementById('routine-editor-title').innerText = "Crear Rutina Base";
+        document.getElementById('save-routine-btn').innerText = "GUARDAR";
+        document.getElementById('cancel-edit-btn').classList.add('hidden');
+        admin.renderPreview();
+    },
+
+    saveRoutine: async () => {
+        const name = document.getElementById('new-routine-name').value; 
+        const client = document.getElementById('assign-client-select').value;
+        if(!name || !client) return alert("Faltan datos");
+        
+        if(state.editingRoutineId) {
+            // ACTUALIZAR
+            await updateDoc(doc(db, "routines", state.editingRoutineId), { name, assignedTo: client, exercises: state.newRoutine });
+            alert("Actualizada");
+        } else {
+            // CREAR
+            await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() });
+            alert("Guardada");
+        }
+        admin.cancelEdit(); // Reset form
+        admin.renderExistingRoutines();
+    },
+
     loadUsers: async () => {
         const div = document.getElementById('admin-users-list'); div.innerHTML = 'Cargando...';
         try {
@@ -93,10 +207,10 @@ const admin = {
             const rCounts = {}; rSnap.forEach(d => { const uid = d.data().assignedTo; if(uid) rCounts[uid] = (rCounts[uid]||0)+1; });
             const snap = await getDocs(collection(db, "users"));
             div.innerHTML = ''; state.allClients = [];
-            const selectAssign = document.getElementById('assign-client-select'); selectAssign.innerHTML = '<option disabled selected>Elegir Cliente...</option>';
+            const selectAssign = document.getElementById('assign-client-select'); selectAssign.innerHTML = '<option disabled selected>Selecciona...</option>';
             snap.forEach(d => {
                 const u = d.data(); state.allClients.push({id:d.id, ...u});
-                div.innerHTML += `<div class="user-row" onclick="window.admin.viewClient('${d.id}')"><img src="${u.photoURL||'https://placehold.co/100x100/333/39ff14?text=IMG'}" class="user-avatar-small"><div class="user-info"><h5>${u.name} <span class="routine-count-badge">[${rCounts[d.id]||0} Rutinas]</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
+                div.innerHTML += `<div class="user-row" onclick="window.admin.viewClient('${d.id}')"><img src="${u.photoURL||'assets/placeholder-body.png'}" class="user-avatar-small"><div class="user-info"><h5>${u.name} <span class="routine-count-badge">[${rCounts[d.id]||0} Rutinas]</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
                 selectAssign.innerHTML += `<option value="${d.id}">${u.name}</option>`;
             });
         } catch(e) { div.innerHTML = 'Error usuarios'; }
@@ -111,16 +225,13 @@ const admin = {
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
-        
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
-        
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
-        const snapshot = await getDocs(q);
-        const workouts = []; snapshot.forEach(d => workouts.push(d.data()));
+        const snap = await getDocs(q);
+        const workouts = []; snap.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
-        
         hList.innerHTML = ''; const mCounts = {};
         if(workouts.length===0) hList.innerHTML = '<p style="text-align:center">Sin historial</p>';
         workouts.slice(0,10).forEach(w => {
@@ -133,7 +244,7 @@ const admin = {
         });
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
-            const lineData = [...(user.statsHistory || [])].sort((a,b) => a.date.seconds - b.date.seconds);
+            const lineData = [...(user.statsHistory || [])].sort((a,b) => (a.date.seconds||new Date(a.date)) - (b.date.seconds||new Date(b.date)));
             window.chartHelpers.renderLine('clientWeightChart', lineData, 'weight', '#39ff14');
             window.chartHelpers.renderLine('clientFatChart', lineData, 'fat', '#ff3b30');
             window.chartHelpers.renderLine('clientMuscleChart', lineData, 'muscle', '#00d4ff');
@@ -159,9 +270,17 @@ const admin = {
             const r = d.data();
             if(!seen.has(r.name)) {
                 seen.add(r.name);
-                let opts = '<option disabled selected>Clonar a...</option>';
-                state.allClients.forEach(c => opts += `<option value="${c.id}">${c.name}</option>`);
-                div.innerHTML += `<div class="exercise-card" style="border-left: 4px solid var(--neon-green)"><div style="display:flex; justify-content:space-between; cursor:pointer" onclick="window.admin.showRoutineDetails('${d.id}')"><h4>${r.name}</h4><i class="material-icons-round" style="color:#666">info</i></div><div style="font-size:12px; color:#aaa; margin-top:5px">${r.exercises.length} Ejercicios</div><select style="margin-top:10px; width:100%; color:var(--neon-green)" onchange="window.admin.cloneRoutine('${d.id}', this.value)">${opts}</select></div>`;
+                div.innerHTML += `
+                    <div class="exercise-card" style="border-left: 4px solid var(--neon-green)">
+                        <div style="display:flex; justify-content:space-between; align-items:center">
+                            <h4>${r.name}</h4>
+                            <div style="display:flex; gap:10px">
+                                <button style="background:none; border:none; color:white; cursor:pointer" onclick="window.admin.showRoutineDetails('${d.id}')">VER</button>
+                                <button style="background:none; border:none; color:var(--neon-green); cursor:pointer" onclick="window.admin.editRoutine('${d.id}')">EDITAR</button>
+                            </div>
+                        </div>
+                        <div style="font-size:12px; color:#aaa; margin-top:5px">${r.exercises.length} Ejercicios</div>
+                    </div>`;
             }
         });
     },
@@ -169,7 +288,11 @@ const admin = {
         const snap = await getDoc(doc(db, "routines", rid)); const r = snap.data();
         const modal = document.getElementById('workout-detail-modal');
         document.getElementById('wd-title').innerText = r.name;
-        document.getElementById('wd-content').innerHTML = r.exercises.map(e => `<h4>${e.n}</h4><small>${e.defaultSets.length} series</small>`).join('');
+        document.getElementById('wd-content').innerHTML = r.exercises.map(e => `
+            <div style="margin-bottom:10px">
+                <div style="display:flex; gap:10px; align-items:center"><img src="assets/muscles/${e.img}" width="30" height="30" style="background:#000; border-radius:4px"><strong>${e.n}</strong></div>
+                <small>${e.defaultSets.length} series</small>
+            </div>`).join('');
         modal.classList.remove('hidden');
     },
     cloneRoutine: async (rid, targetId) => {
@@ -179,42 +302,7 @@ const admin = {
             alert("Clonada"); if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(targetId);
         } catch(e) { alert("Error"); }
     },
-    deleteRoutine: async (id) => { if(confirm("¿Borrar?")) { await deleteDoc(doc(db, "routines", id)); if(state.currentClientId) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } },
-    renderExerciseSelect: () => { const s = document.getElementById('admin-exercise-select'); s.innerHTML = ''; EXERCISES.forEach((e,i) => s.innerHTML += `<option value="${i}">${e.n}</option>`); state.newRoutine = []; },
-    filterExercises: (t) => { const s = document.getElementById('admin-exercise-select'); s.innerHTML = ''; EXERCISES.forEach((e,i) => { if(normalizeText(e.n).includes(normalizeText(t))) s.innerHTML += `<option value="${i}">${e.n}</option>`; }); },
-    addExerciseToRoutine: () => { 
-        const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; 
-        // 5 SERIES DEFAULT (20-16-16-16-16)
-        state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
-        admin.renderPreview(); 
-    },
-    renderPreview: () => { 
-        const div = document.getElementById('admin-routine-preview');
-        div.innerHTML = state.newRoutine.map((e, exIdx) => `
-            <div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px">
-                <div style="display:flex; justify-content:space-between">
-                    <strong>${e.n}</strong>
-                    <span style="color:#ff3b30; cursor:pointer" onclick="window.admin.removeEx(${exIdx})">x</span>
-                </div>
-                <div style="font-size:12px; margin-top:5px; display:flex; align-items:center; gap:10px">
-                    <span>${e.defaultSets.length} Series</span>
-                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, 1)">+</button>
-                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, -1)">-</button>
-                </div>
-            </div>`).join(''); 
-    },
-    removeEx: (i) => { state.newRoutine.splice(i, 1); admin.renderPreview(); },
-    modSets: (i, delta) => {
-        if(delta > 0) state.newRoutine[i].defaultSets.push({reps:12});
-        else if(state.newRoutine[i].defaultSets.length > 1) state.newRoutine[i].defaultSets.pop();
-        admin.renderPreview();
-    },
-    saveRoutine: async () => {
-        const name = document.getElementById('new-routine-name').value; const client = document.getElementById('assign-client-select').value;
-        if(!name || !client) return alert("Faltan datos");
-        await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() });
-        alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview();
-    }
+    deleteRoutine: async (id) => { if(confirm("¿Borrar?")) { await deleteDoc(doc(db, "routines", id)); if(state.currentClientId) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } }
 };
 
 const dashboard = {
@@ -233,7 +321,6 @@ const dashboard = {
         try {
             const now = new Date(); const day = now.getDay() || 7;
             const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
-            
             const q = query(collection(db, "workouts"), where("userId", "==", uid));
             const snap = await getDocs(q);
             let count = 0;
@@ -273,10 +360,10 @@ const workoutManager = {
                 if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
-                const dis = s.done ? 'disabled' : '';
+                const dis = s.done ? 'disabled style="background:#222; color:#555; border:1px solid #333"' : '';
                 html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
             });
-            div.innerHTML += `<div class="exercise-card"><h3>${ex.n}</h3>${html}</div>`;
+            div.innerHTML += `<div class="exercise-card"><div style="display:flex; gap:10px; align-items:center; margin-bottom:10px"><img src="assets/muscles/${ex.img}" width="40" height="40" style="background:#000; border-radius:4px"><h3>${ex.n}</h3></div>${html}</div>`;
         });
         if(window.gInterval) clearInterval(window.gInterval);
         window.gInterval = setInterval(() => {
@@ -337,7 +424,6 @@ const workoutManager = {
 const profile = {
     render: () => {
         document.getElementById('profile-name').innerText = state.profile.name;
-        // PHOTO DOM UPDATE IMMEDIATE
         const img = document.getElementById('profile-img');
         if(state.profile.photoURL) img.src = state.profile.photoURL;
         
@@ -366,9 +452,8 @@ const profile = {
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
         if(w) { 
-            const newEntry = {date: new Date(), weight:w, fat:f, muscle:m};
+            const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
-            // FORCE UPDATE LOCAL
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
             alert("Guardado"); profile.renderCharts(); 
@@ -411,7 +496,6 @@ const profile = {
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64 = e.target.result;
-            // FORCE DOM UPDATE
             document.getElementById('profile-img').src = base64;
             state.profile.photoURL = base64;
             await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
@@ -435,17 +519,7 @@ const chartHelpers = {
     renderLine: (id, data, field, color) => {
         const ctx = document.getElementById(id); if(!ctx) return;
         const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { 
-            type: 'line', 
-            data: { 
-                labels: data.map(d => {
-                    const date = d.date.seconds ? new Date(d.date.seconds*1000) : new Date(d.date);
-                    return date.toLocaleDateString();
-                }), 
-                datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] 
-            }, 
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } 
-        });
+        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>(d.date.seconds?new Date(d.date.seconds*1000):new Date(d.date)).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
     },
     renderRadar: (id, counts) => {
         const ctx = document.getElementById(id); if(!ctx) return;
