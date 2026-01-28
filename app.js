@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// --- CONFIG ---
+// TUS CLAVES - NO LAS CAMBIES
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -19,22 +19,28 @@ const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
 
-// --- GESTORES ---
 const app = {
     init: () => {
+        // Seguro para el logo por si Firebase tarda
+        setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 4000);
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
-                const docSnap = await getDoc(doc(db, "users", user.uid));
-                if(docSnap.exists()) {
-                    state.profile = docSnap.data();
-                    if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
-                    if(!state.profile.records) state.profile.records = {};
-                    app.handleLoginSuccess();
-                } else { signOut(auth); }
-            } else { app.navTo('login'); setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500); }
+                try {
+                    const docSnap = await getDoc(doc(db, "users", user.uid));
+                    if(docSnap.exists()) {
+                        state.profile = docSnap.data();
+                        if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
+                        if(!state.profile.records) state.profile.records = {};
+                        app.handleLoginSuccess();
+                    } else { signOut(auth); }
+                } catch(e) { console.error(e); }
+            } else {
+                app.navTo('login');
+                document.getElementById('splash-screen').classList.add('hidden');
+            }
         });
-        document.getElementById('logout-btn').onclick = () => signOut(auth);
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
         document.getElementById('exercise-search').addEventListener('input', (e) => admin.filterExercises(e.target.value));
@@ -51,23 +57,21 @@ const app = {
         } catch(e) { alert(e.message); }
     },
     handleLoginSuccess: () => {
-        const btn = document.getElementById('admin-btn');
-        if(state.profile.role === 'admin' || state.profile.role === 'coach') { btn.classList.remove('hidden'); admin.loadUsers(); } else { btn.classList.add('hidden'); }
-        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
+        const adminBtn = document.getElementById('admin-btn');
+        if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.loadUsers(); } else { adminBtn.classList.add('hidden'); }
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         document.getElementById('splash-screen').classList.add('hidden');
     },
-    navTo: (view) => {
+    navTo: (viewId) => {
         document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
-        document.getElementById('view-'+view).classList.remove('hidden'); document.getElementById('view-'+view).classList.add('active');
-        const isAuth = ['login', 'register'].includes(view);
+        document.getElementById('view-'+viewId).classList.remove('hidden'); document.getElementById('view-'+viewId).classList.add('active');
+        const isAuth = ['login', 'register'].includes(viewId);
         document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || view === 'workout');
-        if(view === 'dashboard') { document.querySelector('[onclick*="dashboard"]').classList.add('active'); dashboard.render(); }
-        else document.querySelector('[onclick*="dashboard"]').classList.remove('active');
-        if(view === 'profile') { document.querySelector('[onclick*="profile"]').classList.add('active'); profile.render(); }
-        else document.querySelector('[onclick*="profile"]').classList.remove('active');
+        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
+        if(viewId === 'dashboard') dashboard.render();
+        if(viewId === 'profile') profile.render();
+        if(viewId === 'profile') profile.loadHistory();
     },
     showToast: (msg, type='normal') => {
         const div = document.createElement('div'); div.className = `toast ${type}`;
@@ -97,26 +101,26 @@ const admin = {
     toggleApproval: async (uid, st) => { await updateDoc(doc(db, "users", uid), { approved: st }); admin.loadUsers(); },
     viewClient: async (uid) => {
         state.currentClientId = uid;
-        const user = state.allClients.find(c => c.id === uid); if(!user) return;
+        const user = state.allClients.find(c => c.id === uid);
+        if(!user) return;
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
-        
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
         
-        // Historial Cliente (Sin OrderBy para evitar error indice)
+        // Historial sin error de indice
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
-        const snapshot = await getDocs(q);
-        const workouts = []; snapshot.forEach(d => workouts.push(d.data()));
+        const snap = await getDocs(q);
+        const workouts = []; snap.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
         
         hList.innerHTML = ''; const mCounts = {};
-        if(workouts.length===0) hList.innerHTML = '<p style="text-align:center">Sin historial</p>';
+        if(workouts.length===0) hList.innerHTML = '<p>Sin historial</p>';
         workouts.slice(0,10).forEach(w => {
             const d = new Date(w.date.seconds*1000).toLocaleDateString();
             if(w.data.exercises) w.data.exercises.forEach(e => mCounts[e.m] = (mCounts[e.m]||0)+1);
@@ -125,7 +129,6 @@ const admin = {
             div.onclick = () => profile.showWorkoutDetails(w);
             hList.appendChild(div);
         });
-        
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
             const lineData = [...(user.statsHistory || [])].sort((a,b) => a.date.seconds - b.date.seconds);
@@ -145,10 +148,7 @@ const admin = {
         const all = await getDocs(collection(db, "routines")); const seen = new Set();
         all.forEach(d => { if(d.data().assignedTo !== uid && !seen.has(d.data().name)) { seen.add(d.data().name); sel.innerHTML += `<option value="${d.id}">${d.data().name}</option>`; } });
     },
-    cloneRoutineFromClientView: async () => {
-        const rid = document.getElementById('client-clone-select').value; if(!rid) return;
-        admin.cloneRoutine(rid, state.currentClientId);
-    },
+    cloneRoutineFromClientView: async () => { const rid = document.getElementById('client-clone-select').value; if(!rid) return; admin.cloneRoutine(rid, state.currentClientId); },
     renderExistingRoutines: async () => {
         const div = document.getElementById('admin-routines-management'); div.innerHTML = 'Cargando...';
         const snap = await getDocs(collection(db, "routines")); div.innerHTML = '';
@@ -202,16 +202,22 @@ const dashboard = {
             div.innerHTML += `<div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p></div>`;
         });
     },
+    // LOGICA SEMANA CORREGIDA (Lunes exacto)
     calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
-        const now = new Date(); const day = now.getDay() || 7;
-        const start = new Date(now); start.setHours(-24 * (day - 1)); start.setHours(0,0,0,0);
-        // Filtro manual para evitar error de indice
-        const q = query(collection(db, "workouts"), where("userId", "==", uid));
-        const snap = await getDocs(q);
-        let count = 0;
-        snap.forEach(d => { if(d.data().date.seconds * 1000 >= start.getTime()) count++; });
-        document.getElementById(cid).innerText = `${count}/${goal}`;
-        document.getElementById(bid).style.width = Math.min((count/goal)*100, 100) + '%';
+        try {
+            const now = new Date();
+            const day = now.getDay() || 7;
+            const start = new Date(now);
+            start.setHours(0,0,0,0);
+            start.setDate(now.getDate() - day + 1); // Lunes de esta semana a las 00:00
+            
+            const q = query(collection(db, "workouts"), where("userId", "==", uid));
+            const snap = await getDocs(q);
+            let count = 0;
+            snap.forEach(d => { if(d.data().date.seconds * 1000 >= start.getTime()) count++; });
+            document.getElementById(cid).innerText = `${count}/${goal}`;
+            document.getElementById(bid).style.width = Math.min((count/goal)*100, 100) + '%';
+        } catch(e) { console.log(e); }
     }
 };
 
@@ -220,14 +226,12 @@ const workoutManager = {
         try {
             const docSnap = await getDoc(doc(db, "routines", rid)); const data = docSnap.data();
             state.lastWorkoutData = null;
-            // Buscar historial localmente
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
             const snap = await getDocs(q); const workouts = [];
             snap.forEach(d => workouts.push(d.data()));
             workouts.sort((a,b) => b.date.seconds - a.date.seconds);
             const last = workouts.find(w => w.data.name === rname);
             if(last) state.lastWorkoutData = last.data;
-
             state.activeWorkout = { name: rname, start: Date.now(), exercises: data.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) })) };
             localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout));
             try { if(navigator.wakeLock) state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
@@ -262,18 +266,6 @@ const workoutManager = {
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
-            // Record Check
-            if(s.kg && s.reps) {
-                const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
-                const name = state.activeWorkout.exercises[ei].n;
-                if(!state.profile.records) state.profile.records = {};
-                if(oneRM > (state.profile.records[name] || 0)) {
-                    state.profile.records[name] = oneRM;
-                    updateDoc(doc(db, "users", state.user.uid), { [`records.${name}`]: oneRM });
-                    app.showToast(`¡RÉCORD! ${name} (${oneRM}kg)`, 'gold');
-                    confetti();
-                }
-            }
         }
         workoutManager.saveLocal(); workoutManager.uiInit();
     },
@@ -296,14 +288,16 @@ const workoutManager = {
     stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
     cancelWorkout: () => { if(confirm("¿Cancelar?")) { localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{}); app.navTo('dashboard'); } },
     openFinishModal: () => document.getElementById('finish-modal').classList.remove('hidden'),
+    
+    // GUARDADO SEGURO
     confirmFinish: async (rpe) => {
         document.getElementById('finish-modal').classList.add('hidden');
-        if(!state.user || !state.activeWorkout) return alert("Error: No hay sesión");
+        if(!state.user || !state.activeWorkout) return alert("Error: Sesión perdida. Recarga.");
         try {
             await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpe, notes: document.getElementById('final-notes').value });
             localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{});
-            app.showToast("¡Entreno Guardado!", "gold"); confetti(); app.navTo('dashboard');
-        } catch(e) { alert("Error: " + e.message); }
+            app.showToast("¡Entreno Guardado!", "gold"); if(window.confetti) window.confetti(); app.navTo('dashboard');
+        } catch(e) { alert("Error al guardar: " + e.message); }
     }
 };
 
@@ -315,6 +309,8 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         profile.renderCharts(); profile.loadRadar();
+        // Cargar historial si estamos en la pestaña
+        if(!document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
     },
     loadRadar: async () => {
         const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
@@ -325,7 +321,7 @@ const profile = {
     },
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
-        if(w) { await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m}) }); alert("Guardado"); }
+        if(w) { await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m}) }); alert("Guardado"); profile.renderCharts(); }
     },
     saveSettings: async () => {
         const g = parseInt(document.getElementById('conf-weekly-goal').value); const r = parseInt(document.getElementById('conf-rest-time').value);
