@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// TUS CLAVES
+// --- CONFIGURACIÓN FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,330 +17,61 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
+// --- ESTADO GLOBAL ---
 const state = {
-    user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null,
-    newRoutine: [], allClients: [], sounds: { beep: document.getElementById('timer-beep') }, wakeLock: null, currentClientId: null
+    user: null,
+    profile: null,
+    activeWorkout: null,
+    lastWorkoutData: null,
+    restTimer: null,
+    newRoutine: [],
+    allClients: [],
+    sounds: { beep: document.getElementById('timer-beep') },
+    wakeLock: null,
+    currentClientId: null
 };
 
-const app = {
-    init: () => {
-        onAuthStateChanged(auth, async (user) => {
-            if (user) { state.user = user; await app.loadProfile(user.uid); }
-            else { state.user = null; app.navTo('login'); app.hideSplash(); }
-        });
-        document.getElementById('logout-btn').onclick = () => signOut(auth);
-        document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
-        document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
-        document.getElementById('exercise-search').addEventListener('input', (e) => admin.filterExercises(e.target.value));
-    },
-    loadProfile: async (uid) => {
-        try {
-            const docSnap = await getDoc(doc(db, "users", uid));
-            if (docSnap.exists()) {
-                state.profile = docSnap.data();
-                if (!state.profile.settings) state.profile.settings = { restTime: 60, weeklyGoal: 3 };
-                if (!state.profile.records) state.profile.records = {};
-                app.handleLoginSuccess();
-            } else { await signOut(auth); app.navTo('login'); app.hideSplash(); }
-        } catch (e) { console.error(e); }
-    },
-    handleLoginSuccess: () => {
-        const adminBtn = document.getElementById('admin-btn');
-        if (adminBtn) {
-            if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.refreshAll(); }
-            else { adminBtn.classList.add('hidden'); }
-        }
-        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
-        const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
-        if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
-        app.hideSplash();
-    },
-    navTo: (viewId) => {
-        document.querySelectorAll('.view').forEach(el => { el.classList.remove('active'); el.classList.add('hidden'); });
-        document.getElementById(`view-${viewId}`).classList.remove('hidden');
-        document.getElementById(`view-${viewId}`).classList.add('active');
-        const isAuth = ['login', 'register'].includes(viewId);
-        document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
-        
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        if(viewId === 'dashboard') document.querySelector('[onclick*="dashboard"]')?.classList.add('active');
-        if(viewId === 'profile') document.querySelector('[onclick*="profile"]')?.classList.add('active');
+// --- IMAGEN DE RESERVA (Para evitar error 404) ---
+const PLACEHOLDER_IMG = "https://placehold.co/100x100/333/39ff14?text=IMG";
 
-        if(viewId === 'dashboard') dashboard.render();
-        if(viewId === 'profile') profile.render();
-        if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
-    },
-    hideSplash: () => { const splash = document.getElementById('splash-screen'); if(splash) { splash.style.opacity = '0'; setTimeout(() => splash.classList.add('hidden'), 500); } },
-    handleLogin: async (e) => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } catch (err) { alert(err.message); } },
-    handleRegister: async (e) => { e.preventDefault(); if(document.getElementById('reg-code').value !== 'bcnfitness') return alert("Código incorrecto"); try { const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value); const clientType = document.getElementById('reg-role-select').value; await setDoc(doc(db, "users", cred.user.uid), { name: document.getElementById('reg-name').value, email: document.getElementById('reg-email').value, role: 'athlete', clientType: clientType, approved: false, photoURL: null, settings: { restTime: 60, weeklyGoal: 3 }, lastLifts: {}, records: {}, statsHistory: [], createdAt: new Date() }); } catch (err) { alert(err.message); } },
-    showToast: (msg, type = 'normal') => { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = `toast ${type}`; const icon = type === 'gold' ? 'emoji_events' : 'info'; toast.innerHTML = `<i class="material-icons-round">${icon}</i><span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 4000); }
-};
-
-const admin = {
-    refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
-    
-    renderUsers: async () => {
-        const list = document.getElementById('admin-users-list');
-        const select = document.getElementById('assign-client-select');
-        if(!list) return;
-        list.innerHTML = 'Cargando...';
-        try {
-            // Cargar rutinas primero
-            const routinesSnap = await getDocs(collection(db, "routines"));
-            const routineCounts = {};
-            routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
-
-            // Cargar usuarios
-            const snapshot = await getDocs(collection(db, "users"));
-            list.innerHTML = ''; state.allClients = [];
-            select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
-            
-            snapshot.forEach(docSnap => {
-                const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
-                const avatar = u.photoURL || 'assets/placeholder-body.png';
-                const rCount = routineCounts[docSnap.id] || 0;
-                
-                list.innerHTML += `
-                    <div class="user-row">
-                        <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
-                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')">
-                            <h5>${u.name} <span class="routine-count-badge">[${rCount} Rutinas]</span></h5>
-                            <span>${u.clientType||'Cliente'}</span>
-                        </div>
-                        <div class="user-actions">
-                            ${!u.approved ? `<button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', true)">APROBAR</button>` : ''}
-                            <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
-                        </div>
-                    </div>`;
-                select.innerHTML += `<option value="${docSnap.id}">${u.name}</option>`;
-            });
-        } catch (e) { console.error(e); list.innerHTML = 'Error cargando usuarios.'; }
-    },
-    
-    deleteUser: async (uid, name) => { if(!confirm(`¿Eliminar a ${name}?`)) return; if(!confirm("⚠️ Acción irreversible. ¿Continuar?")) return; try { await deleteDoc(doc(db, "users", uid)); alert("Eliminado"); admin.renderUsers(); } catch(e) { alert("Error"); } },
-    toggleApproval: async (uid, status) => { await updateDoc(doc(db, "users", uid), { approved: status }); admin.renderUsers(); },
-    
-    viewClient: async (userId) => {
-        state.currentClientId = userId;
-        let user = state.allClients.find(c => c.id === userId);
-        if(!user) { const docSnap = await getDoc(doc(db, "users", userId)); user = { id: docSnap.id, ...docSnap.data() }; }
-        
-        document.getElementById('client-detail-name').innerText = user.name;
-        document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
-        document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
-        const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
-        document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--'; document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--'; document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
-        
-        // CALCULO DE ENTRENO SEMANAL DEL CLIENTE (FIX 0/0)
-        dashboard.calculateWeeklyProgress(userId, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
-
-        // HISTORIAL CLIENTE SIN ORDERBY (Client-side Sort)
-        const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
-        try {
-            const q = query(collection(db, "workouts"), where("userId", "==", userId));
-            const snapshot = await getDocs(q); 
-            const workouts = [];
-            snapshot.forEach(doc => workouts.push(doc.data()));
-            workouts.sort((a,b) => b.date.seconds - a.date.seconds);
-
-            historyContainer.innerHTML = ''; const muscleCounts = {};
-            if(workouts.length === 0) historyContainer.innerHTML = '<p style="text-align:center">Sin entrenos.</p>';
-            
-            workouts.slice(0, 10).forEach(w => {
-                const d = new Date(w.date.seconds*1000).toLocaleDateString();
-                if(w.data.exercises) w.data.exercises.forEach(e => { if(!muscleCounts[e.m]) muscleCounts[e.m]=0; muscleCounts[e.m]+= (e.sets ? e.sets.length : 0); });
-                const item = document.createElement('div'); item.className = 'history-item';
-                item.innerHTML = `<div class="history-date">${d}</div><div class="history-title">${w.data.name}</div><div class="history-meta"><span class="tag">${w.rpe}</span></div>`;
-                item.onclick = () => profile.showWorkoutDetails(w); historyContainer.appendChild(item);
-            });
-            chartHelpers.renderRadar('clientRadarChart', muscleCounts);
-        } catch(e) { console.log(e); historyContainer.innerHTML = 'Error al cargar.'; }
-        
-        chartHelpers.renderLine('clientWeightChart', user.statsHistory||[], 'weight', '#39ff14');
-        chartHelpers.renderLine('clientFatChart', user.statsHistory||[], 'fat', '#ff3b30');
-        chartHelpers.renderLine('clientMuscleChart', user.statsHistory||[], 'muscle', '#00d4ff');
-        
-        admin.renderClientRoutines(userId);
-        app.navTo('client-detail');
-    },
-
-    renderClientRoutines: async (userId) => {
-        const container = document.getElementById('client-routines-list'); container.innerHTML = 'Cargando...';
-        try {
-            const q = query(collection(db, "routines"), where("assignedTo", "==", userId));
-            const snapshot = await getDocs(q); container.innerHTML = '';
-            if(snapshot.empty) container.innerHTML = '<p style="font-size:12px; color:#666">Sin rutinas asignadas.</p>';
-            snapshot.forEach(doc => { const r = doc.data(); container.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center"><span style="font-size:13px">${r.name}</span><button class="icon-btn" onclick="admin.deleteRoutine('${doc.id}')" style="color:#ff3b30; font-size:16px"><i class="material-icons-round">delete</i></button></div>`; });
-            
-            const select = document.getElementById('client-clone-select'); select.innerHTML = '<option value="" disabled selected>Seleccionar base...</option>';
-            const allRoutines = await getDocs(collection(db, "routines"));
-            const uniqueNames = new Set();
-            allRoutines.forEach(doc => { 
-                const d = doc.data();
-                if(d.assignedTo !== userId && !uniqueNames.has(d.name)) {
-                    uniqueNames.add(d.name);
-                    select.innerHTML += `<option value="${doc.id}">${d.name}</option>`; 
-                }
-            });
-        } catch(e) { console.log(e); }
-    },
-
-    cloneRoutineFromClientView: async () => {
-        const routineId = document.getElementById('client-clone-select').value;
-        if(!routineId) return;
-        admin.cloneRoutine(routineId, state.currentClientId);
-    },
-
-    renderExistingRoutines: async () => {
-        const container = document.getElementById('admin-routines-management'); if(!container) return; container.innerHTML = 'Cargando...';
-        try {
-            const snapshot = await getDocs(collection(db, "routines"));
-            container.innerHTML = '';
-            const groupedRoutines = {};
-            snapshot.forEach(doc => {
-                const r = doc.data();
-                if(!groupedRoutines[r.name]) { groupedRoutines[r.name] = { id: doc.id, ...r }; }
-            });
-
-            if(Object.keys(groupedRoutines).length === 0) { container.innerHTML = '<p>No hay rutinas.</p>'; return; }
-
-            Object.values(groupedRoutines).forEach(r => {
-                let cloneOptions = `<option value="" disabled selected>Clonar a...</option>`;
-                state.allClients.forEach(c => { cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`; });
-                
-                container.innerHTML += `
-                    <div class="exercise-card" style="border-left: 4px solid var(--neon-green)">
-                        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="admin.showRoutineDetails('${r.id}')">
-                            <h4 style="margin:0">${r.name}</h4>
-                            <i class="material-icons-round" style="color:#666">info</i>
-                        </div>
-                        <div style="margin-top:5px; font-size:12px; color:#aaa">${r.exercises.length} Ejercicios</div>
-                        <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px">
-                            <select onchange="admin.cloneRoutine('${r.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:var(--neon-green)">
-                                ${cloneOptions}
-                            </select>
-                        </div>
-                    </div>`;
-            });
-        } catch(e) { console.log(e); container.innerHTML = 'Error'; }
-    },
-    
-    showRoutineDetails: async (routineId) => {
-        const docSnap = await getDoc(doc(db, "routines", routineId));
-        const r = docSnap.data();
-        const modal = document.getElementById('workout-detail-modal');
-        const content = document.getElementById('wd-content');
-        document.getElementById('wd-title').innerText = r.name;
-        let html = '';
-        r.exercises.forEach(ex => { html += `<h4 style="margin:10px 0 5px; color:var(--neon-green)">${ex.n}</h4><div style="font-size:12px; color:#888">${ex.defaultSets.length} Series predefinidas</div>`; });
-        content.innerHTML = html; modal.classList.remove('hidden');
-    },
-    
-    cloneRoutine: async (routineId, targetUserId) => {
-        try {
-            const docSnap = await getDoc(doc(db, "routines", routineId)); const data = docSnap.data();
-            await addDoc(collection(db, "routines"), { ...data, assignedTo: targetUserId, createdAt: new Date(), name: data.name });
-            alert("Rutina clonada exitosamente"); 
-            if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(targetUserId);
-            else admin.renderExistingRoutines();
-        } catch(e) { alert("Error al clonar"); }
-    },
-
-    deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina permanentemente?")) return; try { await deleteDoc(doc(db, "routines", routineId)); if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } catch(e) { alert("Error"); } },
-    renderExerciseSelect: () => { const select = document.getElementById('admin-exercise-select'); if(!select) return; select.innerHTML = '<option value="">Selecciona ejercicio...</option>'; EXERCISES.forEach((ex, idx) => { select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); state.newRoutine = []; admin.renderPreview(); },
-    filterExercises: (term) => { const select = document.getElementById('admin-exercise-select'); const lowerTerm = term.toLowerCase(); select.innerHTML = ''; EXERCISES.forEach((ex, idx) => { if(ex.n.toLowerCase().includes(lowerTerm)) select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); },
-    addExerciseToRoutine: () => { const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; const exData = EXERCISES[idx]; state.newRoutine.push({ ...exData, defaultSets: [ {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16} ] }); admin.renderPreview(); },
-    renderPreview: () => { const container = document.getElementById('admin-routine-preview'); if(!container) return; container.innerHTML = state.newRoutine.map((ex, exIdx) => { const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png'; let setsHtml = ex.defaultSets.map((s, sIdx) => `<input type="number" class="mini-input" value="${s.reps}" onchange="admin.updateRoutineSet(${exIdx}, ${sIdx}, this.value)">`).join(''); return `<div class="routine-edit-row"><div class="routine-edit-header"><img src="${imgSrc}" class="routine-mini-img"><span style="font-size:14px">${ex.n}</span><button class="btn-text" style="width:auto; margin:0 0 0 auto; color:#ff3b30" onclick="admin.removeExercise(${exIdx})">x</button></div><div class="routine-sets-inputs">${setsHtml}</div></div>`; }).join(''); },
-    updateRoutineSet: (exIdx, sIdx, val) => { state.newRoutine[exIdx].defaultSets[sIdx].reps = parseInt(val); },
-    removeExercise: (idx) => { state.newRoutine.splice(idx, 1); admin.renderPreview(); },
-    saveRoutine: async () => { const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value; if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos"); try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } }
-};
-
-const dashboard = {
-    render: async () => {
-        const container = document.getElementById('routines-list'); if(!container) return; container.innerHTML = 'Cargando...';
-        // Calcular mi progreso
-        dashboard.calculateWeeklyProgress(state.user.uid, 'weekly-count', 'weekly-bar', state.profile.settings?.weeklyGoal);
-        
-        try {
-            const q = query(collection(db, "routines")); const snapshot = await getDocs(q); container.innerHTML = ''; let count = 0;
-            snapshot.forEach(doc => {
-                const r = doc.data();
-                if(r.assignedTo === state.user.uid) {
-                    count++;
-                    container.innerHTML += `
-                        <div class="exercise-card" onclick="window.workoutManager.start('${doc.id}', '${r.name}')" style="cursor:pointer">
-                            <div style="display:flex; justify-content:space-between; align-items:center">
-                                <h3 style="margin:0">${r.name}</h3>
-                                <i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i>
-                            </div>
-                            <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
-                        </div>`;
-                }
-            });
-            if(count === 0) container.innerHTML = '<p style="text-align:center">Sin rutinas.</p>';
-        } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
-    },
-    
-    // CALCULADORA SEMANAL (CORREGIDA FECHA)
-    calculateWeeklyProgress: async (userId, countId, barId, goalVal) => {
-        try {
-            const now = new Date();
-            // Truco para conseguir el Lunes a las 00:00:00
-            const day = now.getDay() || 7; 
-            if(day !== 1) now.setHours(-24 * (day - 1)); 
-            now.setHours(0,0,0,0);
-            
-            // Client-side filtering
-            const q = query(collection(db, "workouts"), where("userId", "==", userId));
-            const snap = await getDocs(q); 
-            let weekCount = 0;
-            snap.forEach(d => {
-                // Multiplicamos por 1000 porque Firestore guarda seconds
-                if(d.data().date.seconds * 1000 >= now.getTime()) weekCount++;
-            });
-            
-            const goal = goalVal || 3;
-            const elCount = document.getElementById(countId);
-            const elBar = document.getElementById(barId);
-            
-            if(elCount) elCount.innerText = `${weekCount}/${goal}`;
-            if(elBar) elBar.style.width = Math.min((weekCount/goal)*100, 100) + '%';
-        } catch(e) { console.log("Error weekly", e); }
-    }
-};
-
+// --- GESTOR DE ENTRENAMIENTO (Definido PRIMERO para evitar errores) ---
 const workoutManager = {
     start: async (rid, rname) => {
         try {
-            const docRef = await getDoc(doc(db, "routines", rid)); const routineData = docRef.data();
+            const docRef = await getDoc(doc(db, "routines", rid));
+            const routineData = docRef.data();
+            
             state.lastWorkoutData = null;
             try {
-                // Fetch seguro sin indice
+                // Buscamos historial previo en local para ser más rápidos
                 const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
-                const snapshot = await getDocs(q);
+                const snap = await getDocs(q);
                 const workouts = [];
-                snapshot.forEach(doc => workouts.push(doc.data()));
+                snap.forEach(d => workouts.push(d.data()));
                 workouts.sort((a,b) => b.date.seconds - a.date.seconds);
                 const last = workouts.find(w => w.data.name === rname);
                 if(last) state.lastWorkoutData = last.data;
-            } catch(e) {}
+            } catch(e) { console.log("No historial previo"); }
 
             state.activeWorkout = {
-                name: rname, start: Date.now(),
+                name: rname,
+                start: Date.now(),
                 exercises: routineData.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) }))
             };
             localStorage.setItem('bcn_workout', JSON.stringify(state.activeWorkout));
-            try { state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+            
+            // Wake Lock (Pantalla encendida)
+            try { if(navigator.wakeLock) state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+            
             workoutManager.uiInit();
-        } catch(e) { alert("Error al iniciar: " + e.message); }
+        } catch(e) { alert("Error al iniciar rutina: " + e.message); }
     },
 
     uiInit: () => {
         app.navTo('workout');
         const container = document.getElementById('active-exercises-container');
         container.innerHTML = '';
+        
         state.activeWorkout.exercises.forEach((ex, idx) => {
             let setsHtml = '';
             ex.sets.forEach((s, sIdx) => {
@@ -353,19 +84,24 @@ const workoutManager = {
                 <div class="set-row ${s.done?'set-completed':''}">
                     <span>#${sIdx+1}</span>
                     <span style="font-size:10px; color:#888">${prevInfo}</span>
-                    <input type="number" placeholder="reps" value="${s.reps}" onchange="window.workoutManager.updateSet(${idx},${sIdx},'reps',this.value)">
-                    <input type="number" placeholder="kg" value="${s.kg}" onchange="window.workoutManager.updateSet(${idx},${sIdx},'kg',this.value)">
-                    <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${sIdx})">✔</div>
+                    <input type="number" placeholder="reps" value="${s.reps}" onchange="workoutManager.updateSet(${idx},${sIdx},'reps',this.value)">
+                    <input type="number" placeholder="kg" value="${s.kg}" onchange="workoutManager.updateSet(${idx},${sIdx},'kg',this.value)">
+                    <div class="check-box ${s.done?'checked':''}" onclick="workoutManager.toggleSet(${idx},${sIdx})">✔</div>
                 </div>`;
             });
             container.innerHTML += `<div class="exercise-card"><h3>${ex.n}</h3>${setsHtml}</div>`;
         });
         
-        setInterval(() => {
+        // REINICIAR Y ARRANCAR TIMER GLOBAL
+        // Usamos window.globalInterval para poder limpiarlo si existía
+        if(window.globalInterval) clearInterval(window.globalInterval);
+        window.globalInterval = setInterval(() => {
+            if(!state.activeWorkout) return;
             const diff = Math.floor((Date.now() - state.activeWorkout.start) / 1000);
             const m = Math.floor(diff/60).toString().padStart(2,'0');
             const s = (diff%60).toString().padStart(2,'0');
-            document.getElementById('global-timer').innerText = `${m}:${s}`;
+            const timerEl = document.getElementById('global-timer');
+            if(timerEl) timerEl.innerText = `${m}:${s}`;
         }, 1000);
     },
 
@@ -377,23 +113,27 @@ const workoutManager = {
     toggleSet: (exIdx, sIdx) => {
         const s = state.activeWorkout.exercises[exIdx].sets[sIdx];
         s.done = !s.done;
+        
+        // Lógica de Record 1RM
+        if(s.done && s.kg && s.reps) {
+            const kg = parseFloat(s.kg); const reps = parseInt(s.reps);
+            const oneRM = Math.round(kg * (1 + reps/30));
+            const exName = state.activeWorkout.exercises[exIdx].n;
+            
+            if(!state.profile.records) state.profile.records = {};
+            if(oneRM > (state.profile.records[exName] || 0)) {
+                state.profile.records[exName] = oneRM;
+                updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM }).catch(console.error);
+                app.showToast(`¡RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
+                if(window.confetti) window.confetti();
+            }
+        }
+
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
-            // 1RM Logic
-            if(s.kg && s.reps) {
-                const kg = parseFloat(s.kg); const reps = parseInt(s.reps);
-                const oneRM = Math.round(kg * (1 + reps/30)); const exName = state.activeWorkout.exercises[exIdx].n;
-                if(!state.profile.records) state.profile.records = {};
-                if(oneRM > (state.profile.records[exName] || 0)) {
-                    state.profile.records[exName] = oneRM;
-                    updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
-                    app.showToast(`¡RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
-                    confetti();
-                }
-            }
         }
-        workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
+        workoutManager.uiInit();
     },
 
     startRest: (sec) => {
@@ -401,8 +141,11 @@ const workoutManager = {
         modal.classList.remove('hidden');
         let remaining = sec;
         if(state.restTimer) clearInterval(state.restTimer);
+        
         const update = () => {
-            document.getElementById('rest-countdown').innerText = remaining;
+            const el = document.getElementById('rest-countdown');
+            if(el) el.innerText = remaining;
+            
             if(remaining <= 0) {
                 if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
                 if(navigator.vibrate) navigator.vibrate([200,200]);
@@ -420,19 +163,22 @@ const workoutManager = {
     },
 
     cancelWorkout: () => {
-        if(confirm("¿Cancelar?")) {
+        if(confirm("¿Cancelar entreno?")) {
             localStorage.removeItem('bcn_workout');
             state.activeWorkout = null;
-            if(state.wakeLock) state.wakeLock.release();
+            if(state.wakeLock) state.wakeLock.release().catch(e=>{});
+            if(window.globalInterval) clearInterval(window.globalInterval);
             app.navTo('dashboard');
         }
     },
 
-    openFinishModal: () => { document.getElementById('finish-modal').classList.remove('hidden'); },
+    openFinishModal: () => {
+        document.getElementById('finish-modal').classList.remove('hidden');
+    },
 
     confirmFinish: async (rpe) => {
         document.getElementById('finish-modal').classList.add('hidden');
-        if(!state.user || !state.activeWorkout) return alert("Error crítico: No hay sesión activa.");
+        if(!state.user || !state.activeWorkout) return alert("Error: No hay sesión activa");
         
         try {
             await addDoc(collection(db, "workouts"), {
@@ -445,120 +191,102 @@ const workoutManager = {
             });
             localStorage.removeItem('bcn_workout');
             state.activeWorkout = null;
-            if(state.wakeLock) state.wakeLock.release();
+            if(state.wakeLock) state.wakeLock.release().catch(e=>{});
+            if(window.globalInterval) clearInterval(window.globalInterval);
             
             app.showToast("¡Entreno Guardado!", "gold");
-            confetti();
-            app.navTo('dashboard'); 
-        } catch(e) { console.error(e); alert("Error al guardar: " + e.message); }
-    },
-
-    renderExercises: () => {
-        const container = document.getElementById('active-exercises-container'); if(!container) return; container.innerHTML = '';
-        state.activeWorkout.exercises.forEach((ex, exIdx) => {
-            const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
-            container.innerHTML += `<div class="exercise-card"><div style="display:flex; align-items:center; gap:10px; margin-bottom:10px"><img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'"><div><h3 style="font-size:16px; margin:0">${ex.n}</h3><small style="color:var(--neon-green)">${ex.m}</small></div>${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}</div><div id="sets-list-${exIdx}"></div><button class="btn-text" style="width:100%; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button></div>`;
-            workoutManager.renderSets(exIdx);
-        });
-    },
-
-    renderSets: (exIdx) => {
-        const list = document.getElementById(`sets-list-${exIdx}`);
-        const ex = state.activeWorkout.exercises[exIdx];
-        list.innerHTML = ex.sets.map((set, sIdx) => {
-            let prevText = '--';
-            if(state.lastWorkoutData && state.lastWorkoutData.exercises[exIdx] && state.lastWorkoutData.exercises[exIdx].sets[sIdx]) {
-                const p = state.lastWorkoutData.exercises[exIdx].sets[sIdx];
-                prevText = `${p.reps}x${p.kg}kg`;
-            }
-            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="window.workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="window.workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><div class="check-box ${set.done ? 'checked' : ''}" onclick="window.workoutManager.toggleSet(${exIdx}, ${sIdx})">✔</div></div>`;
-        }).join('');
-    },
-
-    addSet: (exIdx) => { state.activeWorkout.exercises[exIdx].sets.push({ kg:'', reps:'', done: false }); workoutManager.saveLocal(); workoutManager.renderSets(exIdx); },
-    updateSet: (exIdx, sIdx, field, val) => { state.activeWorkout.exercises[exIdx].sets[sIdx][field] = val; workoutManager.saveLocal(); },
-    
-    toggleSet: (exIdx, sIdx) => {
-        const set = state.activeWorkout.exercises[exIdx].sets[sIdx]; set.done = !set.done;
-        
-        if(set.done) {
-            if(state.sounds.beep) state.sounds.beep.play().catch(e=>{}); 
-            const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime);
-            // 1RM Logic
-            if(set.kg && set.reps) {
-                const kg = parseFloat(set.kg); const reps = parseInt(set.reps);
-                const oneRM = Math.round(kg * (1 + reps/30)); const exName = state.activeWorkout.exercises[exIdx].n;
-                if(!state.profile.records) state.profile.records = {};
-                const oldRecord = state.profile.records[exName] || 0;
-                if(oneRM > oldRecord) {
-                    state.profile.records[exName] = oneRM;
-                    updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
-                    app.showToast(`¡RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
-                    confetti();
-                }
-            }
-        }
-        workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
-    },
-
-    startRest: (sec) => {
-        const modal = document.getElementById('rest-modal');
-        modal.classList.remove('hidden');
-        let remaining = sec;
-        if(state.restTimer) clearInterval(state.restTimer);
-        const update = () => {
-            document.getElementById('rest-countdown').innerText = remaining;
-            if(remaining <= 0) {
-                if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
-                if(navigator.vibrate) navigator.vibrate([200,200]);
-                workoutManager.stopRest();
-            }
-            remaining--;
-        };
-        update();
-        state.restTimer = setInterval(update, 1000);
-    },
-
-    stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
-    
-    startGlobalTimer: () => {
-        setInterval(() => {
-            if(!state.activeWorkout) return;
-            const diff = Math.floor((Date.now() - state.activeWorkout.start) / 1000);
-            document.getElementById('global-timer').innerText = `${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`;
-        }, 1000);
-    },
-    saveLocal: () => { if(state.user) localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)); }
+            if(window.confetti) window.confetti();
+            app.navTo('dashboard');
+        } catch(e) { alert("Error al guardar: " + e.message); }
+    }
 };
 
+// --- PERFIL ---
 const profile = {
     render: () => {
-        if(!state.profile) return;
         document.getElementById('profile-name').innerText = state.profile.name;
-        const imgEl = document.getElementById('profile-img'); if(state.profile.photoURL) imgEl.src = state.profile.photoURL;
+        const imgEl = document.getElementById('profile-img');
+        // Usar placeholder si no hay foto para evitar 404
+        imgEl.src = state.profile.photoURL || PLACEHOLDER_IMG;
+        
         document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
-        const goalInput = document.getElementById('conf-weekly-goal'); if(goalInput) goalInput.value = state.profile.settings?.weeklyGoal || 3;
-        const restInput = document.getElementById('conf-rest-time'); if(restInput) restInput.value = state.profile.settings?.restTime || 60;
-        profile.renderCharts(); profile.calculateGlobalStats();
-        // Cargar mapa muscular propio
-        profile.loadRadar();
+        document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
+        document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
+        
+        profile.renderCharts();
+        profile.calculateGlobalStats();
     },
-    
-    loadRadar: async () => {
-        const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
-        const snap = await getDocs(q);
-        const counts = {};
-        snap.forEach(d => {
-            const w = d.data();
-            if(w.data.exercises) w.data.exercises.forEach(e => counts[e.m] = (counts[e.m]||0) + 1);
+
+    calculateGlobalStats: async () => {
+        try {
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+            const snapshot = await getDocs(q);
+            let totalTonnage = 0, totalSets = 0, totalReps = 0, totalWorkouts = snapshot.size;
+            snapshot.forEach(doc => {
+                const w = doc.data();
+                if(w.data && w.data.exercises) { 
+                    w.data.exercises.forEach(ex => { 
+                        ex.sets.forEach(s => { 
+                            if(s.done && s.kg && s.reps) { 
+                                totalSets++; 
+                                totalReps += parseInt(s.reps); 
+                                totalTonnage += (parseInt(s.kg) * parseInt(s.reps)); 
+                            } 
+                        }); 
+                    }); 
+                }
+            });
+            document.getElementById('stat-tonnage').innerText = (totalTonnage/1000).toFixed(1) + 't';
+            document.getElementById('stat-sets').innerText = totalSets;
+            document.getElementById('stat-reps').innerText = totalReps;
+            document.getElementById('stat-workouts').innerText = totalWorkouts;
+        } catch(e) {}
+    },
+
+    switchTab: (tabName) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
+        document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+        if(tabName === 'history') profile.loadHistory();
+    },
+
+    loadHistory: async () => {
+        const list = document.getElementById('history-list');
+        list.innerHTML = 'Cargando...';
+        try {
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+            const snapshot = await getDocs(q);
+            const workouts = [];
+            snapshot.forEach(doc => workouts.push(doc.data()));
+            workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+
+            list.innerHTML = '';
+            if(workouts.length === 0) { list.innerHTML = '<p style="text-align:center">Sin historial</p>'; return; }
+            
+            workouts.slice(0, 20).forEach(w => {
+                const d = new Date(w.date.seconds*1000).toLocaleDateString();
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `<div class="history-date">${d}</div><div class="history-title">${w.data.name}</div><div class="history-meta"><span class="tag">${w.rpe}</span></div>`;
+                item.onclick = () => profile.showWorkoutDetails(w);
+                list.appendChild(item);
+            });
+        } catch(e) { console.error(e); list.innerHTML = 'Error cargando historial.'; }
+    },
+
+    showWorkoutDetails: (w) => {
+        const modal = document.getElementById('workout-detail-modal');
+        const content = document.getElementById('wd-content');
+        document.getElementById('wd-title').innerText = w.data.name;
+        let html = `<p><strong>Notas:</strong> ${w.notes || '-'}</p><p><strong>RPE:</strong> ${w.rpe}</p><hr style="border:0; border-top:1px solid #444; margin:10px 0">`;
+        w.data.exercises.forEach(ex => {
+            html += `<h4 style="margin:10px 0 5px; color:var(--neon-green)">${ex.n}</h4><ul>`;
+            ex.sets.forEach(s => html += `<li>${s.reps} reps x ${s.kg} kg</li>`);
+            html += `</ul>`;
         });
-        const ctx = document.getElementById('radarChart').getContext('2d');
-        if(window.myRadar) window.myRadar.destroy();
-        window.myRadar = new Chart(ctx, {
-            type: 'radar',
-            data: { labels: Object.keys(counts), datasets: [{label:'Series', data:Object.values(counts), backgroundColor:'rgba(57,255,20,0.2)', borderColor:'#39ff14'}] },
-            options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white' }, ticks: { display: false } } } }
-        });
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
     },
 
     saveStats: async () => {
@@ -569,37 +297,367 @@ const profile = {
             await updateDoc(doc(db, "users", state.user.uid), {
                 statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m})
             });
-            alert("Guardado");
+            alert("Medidas guardadas");
+            profile.renderCharts(); // Recargar gráficas
         }
     },
+
+    renderCharts: () => {
+        const history = state.profile.statsHistory || [];
+        history.sort((a,b) => a.date.seconds - b.date.seconds);
+        
+        if(window.chartHelpers) {
+            window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
+            window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
+            window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
+            
+            // Cargar radar
+            profile.loadRadar(); 
+        }
+    },
+    
+    loadRadar: async () => {
+        // Carga dinámica de radar para no bloquear
+        const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+        const snap = await getDocs(q);
+        const counts = {};
+        snap.forEach(d => {
+            const w = d.data();
+            if(w.data.exercises) w.data.exercises.forEach(e => counts[e.m] = (counts[e.m]||0) + 1);
+        });
+        if(window.chartHelpers) window.chartHelpers.renderRadar('radarChart', counts);
+    },
+
     saveSettings: async () => {
         const g = parseInt(document.getElementById('conf-weekly-goal').value);
         const r = parseInt(document.getElementById('conf-rest-time').value);
         await updateDoc(doc(db, "users", state.user.uid), { "settings.weeklyGoal": g, "settings.restTime": r });
         state.profile.settings = { weeklyGoal: g, restTime: r };
-        alert("Guardado");
+        alert("Ajustes guardados");
+        dashboard.render(); // Actualizar barra progreso
     },
     
-    requestNotify: () => {
-        if (!("Notification" in window)) return alert("No soportado");
-        Notification.requestPermission().then(perm => { if(perm === "granted") new Notification("¡Activado!"); });
-    },
-    sendNotification: (title, body) => { if(Notification.permission === "granted") new Notification(title, { body: body, icon: 'logo.png' }); },
-    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play().then(() => alert("Sonido OK")); } }
+    requestNotify: () => { Notification.requestPermission().then(p => { if(p==='granted') new Notification("Activado"); }); },
+    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } }
 };
 
-const chartHelpers = {
-    renderLine: (id, history, field, color) => {
-        const ctx = document.getElementById(id); if(!ctx) return; if(ctx.chartInstance) ctx.chartInstance.destroy();
-        const labels = history.map(h => new Date(h.date.seconds ? h.date.seconds*1000 : h.date).toLocaleDateString());
-        const data = history.map(h => h[field]);
-        ctx.chartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: field, data: data, borderColor: color, backgroundColor: color+'20', tension: 0.3, fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { color: '#222' } } } } });
+// --- ADMIN ---
+const admin = {
+    refreshAll: () => { admin.renderExerciseSelect(); admin.loadUsers(); admin.renderExistingRoutines(); },
+    
+    loadUsers: async () => {
+        const div = document.getElementById('admin-users-list');
+        div.innerHTML = 'Cargando...';
+        try {
+            // Rutinas Count
+            const rSnap = await getDocs(collection(db, "routines"));
+            const rCounts = {};
+            rSnap.forEach(d => { 
+                const uid = d.data().assignedTo; 
+                if(uid) rCounts[uid] = (rCounts[uid]||0)+1; 
+            });
+
+            const snap = await getDocs(collection(db, "users"));
+            div.innerHTML = '';
+            const selectAssign = document.getElementById('assign-client-select');
+            selectAssign.innerHTML = '<option disabled selected>Elegir Cliente...</option>';
+            
+            state.allClients = [];
+            snap.forEach(d => {
+                const u = d.data();
+                state.allClients.push({id:d.id, ...u});
+                const count = rCounts[d.id] || 0;
+                
+                div.innerHTML += `
+                <div class="user-row" onclick="window.admin.viewClient('${d.id}')">
+                    <img src="${u.photoURL || PLACEHOLDER_IMG}" class="user-avatar-small">
+                    <div class="user-info">
+                        <h5>${u.name} <span class="routine-count-badge">[${count} Rutinas]</span></h5>
+                        <span>${u.clientType||'Cliente'}</span>
+                    </div>
+                    <div class="user-actions">
+                        ${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}
+                        <button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round">delete</i></button>
+                    </div>
+                </div>`;
+                selectAssign.innerHTML += `<option value="${d.id}">${u.name}</option>`;
+            });
+        } catch(e) { console.error(e); div.innerHTML = 'Error usuarios'; }
     },
-    renderRadar: (id, counts) => {
-        const ctx = document.getElementById(id); if(!ctx) return; if(ctx.chartInstance) ctx.chartInstance.destroy();
-        ctx.chartInstance = new Chart(ctx, { type: 'radar', data: { labels: Object.keys(counts), datasets: [{ label: 'Series', data: Object.values(counts), backgroundColor: 'rgba(57, 255, 20, 0.2)', borderColor: '#39ff14', pointBackgroundColor: '#fff' }] }, options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white', font: {size: 10} }, ticks: { display: false, backdropColor: 'transparent' } } }, plugins: { legend: { display: false } } } });
+
+    deleteUser: async (uid, name) => {
+        if(confirm(`¿Eliminar a ${name}?`) && confirm("Esta acción es irreversible.")) {
+            await deleteDoc(doc(db, "users", uid));
+            admin.loadUsers();
+        }
+    },
+    toggleApproval: async (uid, status) => { await updateDoc(doc(db, "users", uid), { approved: status }); admin.loadUsers(); },
+
+    viewClient: async (uid) => {
+        state.currentClientId = uid;
+        const user = state.allClients.find(c => c.id === uid);
+        if(!user) return;
+
+        document.getElementById('client-detail-name').innerText = user.name;
+        document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
+        document.getElementById('client-detail-img').src = user.photoURL || PLACEHOLDER_IMG;
+
+        // Ultimas medidas
+        const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
+        document.getElementById('cd-weight').innerText = last.weight || '--';
+        document.getElementById('cd-fat').innerText = last.fat || '--';
+        document.getElementById('cd-muscle').innerText = last.muscle || '--';
+
+        // Gráficas Cliente
+        if(window.chartHelpers) {
+            const h = user.statsHistory || [];
+            h.sort((a,b) => a.date.seconds - b.date.seconds);
+            window.chartHelpers.renderLine('clientWeightChart', h, 'weight', '#39ff14');
+            window.chartHelpers.renderLine('clientFatChart', h, 'fat', '#ff3b30');
+            window.chartHelpers.renderLine('clientMuscleChart', h, 'muscle', '#00d4ff');
+        }
+
+        // Progreso Semanal Cliente
+        dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
+
+        // Rutinas Cliente
+        const rList = document.getElementById('client-routines-list');
+        rList.innerHTML = 'Cargando...';
+        const rSnap = await getDocs(query(collection(db, "routines"), where("assignedTo", "==", uid)));
+        rList.innerHTML = '';
+        if(rSnap.empty) rList.innerHTML = '<p>Sin rutinas</p>';
+        rSnap.forEach(d => {
+            rList.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between"><span>${d.data().name}</span><i class="material-icons-round" style="color:red; cursor:pointer" onclick="window.admin.deleteRoutine('${d.id}')">delete</i></div>`;
+        });
+
+        // Selector Clonar
+        const cloneSel = document.getElementById('client-clone-select');
+        cloneSel.innerHTML = '<option disabled selected>Elegir Base...</option>';
+        const allRut = await getDocs(collection(db, "routines"));
+        const seen = new Set();
+        allRut.forEach(d => {
+            const n = d.data().name;
+            if(d.data().assignedTo !== uid && !seen.has(n)) {
+                seen.add(n);
+                cloneSel.innerHTML += `<option value="${d.id}">${n}</option>`;
+            }
+        });
+
+        // Historial Cliente
+        const hList = document.getElementById('client-detail-history');
+        hList.innerHTML = 'Cargando...';
+        const wSnap = await getDocs(query(collection(db, "workouts"), where("userId", "==", uid)));
+        const workouts = [];
+        wSnap.forEach(d => workouts.push(d.data()));
+        workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+        
+        hList.innerHTML = '';
+        const mCounts = {};
+        workouts.slice(0, 10).forEach(w => {
+            const d = new Date(w.date.seconds*1000).toLocaleDateString();
+            if(w.data.exercises) w.data.exercises.forEach(e => mCounts[e.m] = (mCounts[e.m]||0)+1);
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = `<b>${d}</b> - ${w.data.name}<br>RPE: ${w.rpe}`;
+            div.onclick = () => profile.showWorkoutDetails(w);
+            hList.appendChild(div);
+        });
+        if(window.chartHelpers) window.chartHelpers.renderRadar('clientRadarChart', mCounts);
+
+        app.navTo('client-detail');
+    },
+
+    cloneRoutineFromClientView: async () => {
+        const rid = document.getElementById('client-clone-select').value;
+        if(!rid) return;
+        admin.cloneRoutine(rid, state.currentClientId);
+    },
+
+    cloneRoutine: async (rid, targetId) => {
+        try {
+            const docSnap = await getDoc(doc(db, "routines", rid));
+            const data = docSnap.data();
+            await addDoc(collection(db, "routines"), {
+                name: data.name, exercises: data.exercises, assignedTo: targetId, createdAt: new Date()
+            });
+            alert("Clonada");
+            if(document.getElementById('view-client-detail').classList.contains('active')) admin.viewClient(targetId);
+            else admin.renderExistingRoutines();
+        } catch(e) { alert("Error al clonar"); }
+    },
+
+    deleteRoutine: async (id) => {
+        if(confirm("¿Borrar?")) {
+            await deleteDoc(doc(db, "routines", id));
+            if(document.getElementById('view-client-detail').classList.contains('active')) admin.viewClient(state.currentClientId);
+            else admin.renderExistingRoutines();
+        }
+    },
+
+    renderExistingRoutines: async () => {
+        const div = document.getElementById('admin-routines-management');
+        div.innerHTML = 'Cargando...';
+        const snap = await getDocs(collection(db, "routines"));
+        div.innerHTML = '';
+        const seen = new Set();
+        snap.forEach(d => {
+            const r = d.data();
+            if(!seen.has(r.name)) {
+                seen.add(r.name);
+                // Clonar selector para cada rutina
+                let opts = '<option disabled selected>Clonar a...</option>';
+                state.allClients.forEach(c => opts += `<option value="${c.id}">${c.name}</option>`);
+                
+                div.innerHTML += `
+                <div class="exercise-card" style="border-left: 4px solid var(--neon-green)">
+                    <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="window.admin.showRoutineDetails('${d.id}')">
+                        <h4>${r.name}</h4><i class="material-icons-round" style="color:#666">info</i>
+                    </div>
+                    <div style="margin-top:5px; font-size:12px; color:#aaa">${r.exercises.length} Ejercicios</div>
+                    <select style="margin-top:10px; width:100%; color:var(--neon-green)" onchange="window.admin.cloneRoutine('${d.id}', this.value)">${opts}</select>
+                </div>`;
+            }
+        });
+    },
+
+    showRoutineDetails: async (rid) => {
+        const docSnap = await getDoc(doc(db, "routines", rid));
+        const r = docSnap.data();
+        const modal = document.getElementById('workout-detail-modal');
+        const content = document.getElementById('wd-content');
+        document.getElementById('wd-title').innerText = r.name;
+        let html = '';
+        r.exercises.forEach(e => html += `<h4>${e.n}</h4><small>${e.defaultSets.length} series</small>`);
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
+    },
+
+    renderExerciseSelect: () => {
+        const s = document.getElementById('admin-exercise-select');
+        s.innerHTML = '';
+        EXERCISES.forEach((e,i) => s.innerHTML += `<option value="${i}">${e.n}</option>`);
+        state.newRoutine = [];
+    },
+    
+    filterExercises: (t) => {
+        const s = document.getElementById('admin-exercise-select');
+        s.innerHTML = '';
+        EXERCISES.forEach((e,i) => {
+            if(e.n.toLowerCase().includes(t.toLowerCase())) s.innerHTML += `<option value="${i}">${e.n}</option>`;
+        });
+    },
+
+    addExerciseToRoutine: () => {
+        const idx = document.getElementById('admin-exercise-select').value;
+        const ex = EXERCISES[idx];
+        state.newRoutine.push({...ex, defaultSets:[{reps:12},{reps:12},{reps:12}]});
+        admin.renderPreview();
+    },
+
+    renderPreview: () => {
+        document.getElementById('admin-routine-preview').innerHTML = state.newRoutine.map(e => `<div>${e.n} (3 series)</div>`).join('');
+    },
+
+    saveRoutine: async () => {
+        const name = document.getElementById('new-routine-name').value;
+        const client = document.getElementById('assign-client-select').value;
+        if(!name || !client) return alert("Faltan datos");
+        await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() });
+        alert("Guardada");
+        state.newRoutine = [];
+        document.getElementById('new-routine-name').value = '';
+        admin.renderPreview();
     }
 };
 
-window.app = app; window.workoutManager = workoutManager; window.admin = admin; window.profile = profile; window.chartHelpers = chartHelpers;
+const dashboard = {
+    render: async () => {
+        const div = document.getElementById('routines-list');
+        div.innerHTML = 'Cargando...';
+        dashboard.calculateWeeklyProgress(state.user.uid, 'weekly-count', 'weekly-bar', state.profile.settings?.weeklyGoal);
+        
+        const q = query(collection(db, "routines"), where("assignedTo", "==", state.user.uid));
+        const snap = await getDocs(q);
+        div.innerHTML = '';
+        if(snap.empty) div.innerHTML = '<p style="text-align:center">No tienes rutinas asignadas.</p>';
+        snap.forEach(d => {
+            const r = d.data();
+            div.innerHTML += `
+            <div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer">
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                    <h3 style="margin:0">${r.name}</h3>
+                    <i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i>
+                </div>
+                <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
+            </div>`;
+        });
+    },
+
+    calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
+        try {
+            const now = new Date();
+            const day = now.getDay() || 7;
+            const start = new Date(now);
+            start.setHours(-24 * (day - 1));
+            start.setHours(0,0,0,0);
+
+            const q = query(collection(db, "workouts"), where("userId", "==", uid));
+            const snap = await getDocs(q);
+            let count = 0;
+            snap.forEach(d => { if(d.data().date.seconds*1000 >= start.getTime()) count++; });
+            
+            document.getElementById(cid).innerText = `${count}/${goal}`;
+            document.getElementById(bid).style.width = Math.min((count/goal)*100, 100) + '%';
+        } catch(e) {}
+    }
+};
+
+// --- CHART HELPERS ---
+const chartHelpers = {
+    renderLine: (id, data, field, color) => {
+        const ctx = document.getElementById(id); if(!ctx) return;
+        // ChartJS 3+ destroy
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.map(d => new Date(d.date.seconds*1000).toLocaleDateString()),
+                datasets: [{ label: field, data: data.map(d => d[field]), borderColor: color, tension: 0.3 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } }
+        });
+    },
+    renderRadar: (id, counts) => {
+        const ctx = document.getElementById(id); if(!ctx) return;
+        const existingChart = Chart.getChart(ctx);
+        if (existingChart) existingChart.destroy();
+
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{ label: 'Series', data: Object.values(counts), backgroundColor: 'rgba(57,255,20,0.2)', borderColor: '#39ff14' }]
+            },
+            options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white' }, ticks: { display: false } } }, plugins: { legend: { display: false } } }
+        });
+    }
+};
+
+// --- APP PRINCIPAL ---
+const appMain = {
+    // Funciones principales
+    navTo: app.navTo,
+    handleLogin: app.handleLogin
+};
+
+// VINCULACIÓN A WINDOW PARA HTML
+window.app = app;
+window.workoutManager = workoutManager;
+window.admin = admin;
+window.profile = profile;
+window.chartHelpers = chartHelpers;
+
+// INICIAR
 app.init();
