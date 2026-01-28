@@ -1,3 +1,4 @@
+/* --- ESTILOS V19 --- */
 :root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; --text-gray: #a0a0a0; --danger: #ff3b30; --gold: #FFD700; --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { height: 100%; width: 100%; margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: var(--text-white); overflow-y: scroll; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
@@ -13,6 +14,7 @@ h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; marg
 .icon-btn { background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; } .icon-btn i { font-size: 28px; }
 input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; font-family: 'Roboto', sans-serif; }
 input:focus, select:focus, textarea:focus { border-color: var(--neon-green); outline: none; }
+input:disabled { background: #111; color: #555; border-color: #222; } /* ESTILO PARA INPUTS BLOQUEADOS */
 .section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); position: relative; z-index: 2; }
 .warning-box { background: rgba(255, 165, 0, 0.2); color: orange; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid orange; text-align: center; font-size: 14px; }
 .install-box { margin-top: 30px; background: rgba(30,30,30,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(57,255,20,0.3); border-radius: 16px; padding: 15px; text-align: left; }
@@ -53,7 +55,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--neon-green); out
 #global-timer { font-family: 'Russo One'; font-size: 24px; color: white; }
 .set-row { display: grid; grid-template-columns: 0.4fr 1fr 0.8fr 0.8fr 0.4fr; gap: 8px; align-items: center; margin-top: 8px; padding: 8px; background: #080808; border-radius: 6px; }
 .set-row input { margin: 0; padding: 8px; text-align: center; font-weight: bold; font-size: 18px; }
-.set-completed { opacity: 0.4; pointer-events: none; }
+.set-completed { opacity: 0.4; } /* Quitamos pointer-events aquí para que no bloquee el scroll, lo manejamos con disabled */
 .check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0 auto; } .check-box.checked { background: var(--neon-green); color: black; font-weight: bold; }
 .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; } .detail-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; } .detail-table td { padding: 5px; border-bottom: 1px solid #333; }
 .traffic-light-container { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
