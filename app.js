@@ -1,9 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+// NOTA: Hemos quitado los imports de Storage porque ya no los usamos.
 import { EXERCISES } from './data.js';
 
-// --- CONFIGURACIÓN FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -16,6 +16,7 @@ const firebaseConfig = {
 const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
+// const storage = ... YA NO HACE FALTA
 
 const state = {
     user: null,
@@ -39,50 +40,28 @@ const app = {
             }
         });
 
-        const logoutBtn = document.getElementById('logout-btn');
-        if(logoutBtn) logoutBtn.addEventListener('click', () => signOut(auth));
-        
-        const loginForm = document.getElementById('login-form');
-        if(loginForm) loginForm.addEventListener('submit', app.handleLogin);
-        
-        const regForm = document.getElementById('register-form');
-        if(regForm) regForm.addEventListener('submit', app.handleRegister);
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
+        document.getElementById('login-form').onsubmit = app.handleLogin;
+        document.getElementById('register-form').onsubmit = app.handleRegister;
     },
 
-    // --- CORRECCIÓN AQUÍ: AUTO-REPARAR PERFIL SI FALTA ---
     loadProfile: async (uid) => {
         try {
-            const docRef = doc(db, "users", uid);
-            const docSnap = await getDoc(docRef);
-            
+            const docSnap = await getDoc(doc(db, "users", uid));
             if (docSnap.exists()) {
                 state.profile = docSnap.data();
+                // Inicializar
+                if (!state.profile.settings) state.profile.settings = { restTime: 60 };
+                if (!state.profile.lastLifts) state.profile.lastLifts = {};
+                app.handleLoginSuccess();
             } else {
-                // SI NO EXISTE EL PERFIL, LO CREAMOS EN VEZ DE DAR ERROR
-                console.warn("Perfil no encontrado en DB, creando uno nuevo...");
-                const newProfile = {
-                    name: state.user.email.split('@')[0], // Usar parte del email como nombre
-                    role: 'athlete',
-                    approved: false,
-                    settings: { restTime: 60 },
-                    lastLifts: {},
-                    statsHistory: [],
-                    createdAt: new Date()
-                };
-                await setDoc(docRef, newProfile);
-                state.profile = newProfile;
+                console.error("Usuario no encontrado.");
+                await signOut(auth);
+                alert("Acceso Denegado: Usuario no existe.");
+                app.navTo('login');
+                app.hideSplash();
             }
-
-            // Asegurar que existan los objetos anidados para evitar errores futuros
-            if (!state.profile.settings) state.profile.settings = { restTime: 60 };
-            if (!state.profile.lastLifts) state.profile.lastLifts = {};
-            
-            app.handleLoginSuccess();
-
-        } catch (e) { 
-            console.error("Error crítico cargando perfil:", e);
-            alert("Error de conexión con la base de datos.");
-        }
+        } catch (e) { console.error(e); alert("Error de conexión"); }
     },
 
     handleLoginSuccess: () => {
@@ -90,6 +69,7 @@ const app = {
         if (adminBtn) {
             if(state.profile.role === 'admin' || state.profile.role === 'coach') {
                 adminBtn.classList.remove('hidden');
+                admin.renderUsers();
             } else {
                 adminBtn.classList.add('hidden');
             }
@@ -101,7 +81,6 @@ const app = {
             app.navTo('dashboard');
             dashboard.render();
         }
-        
         app.hideSplash();
     },
 
@@ -161,8 +140,10 @@ const app = {
             );
             await setDoc(doc(db, "users", cred.user.uid), {
                 name: document.getElementById('reg-name').value,
+                email: document.getElementById('reg-email').value,
                 role: 'athlete',
                 approved: false,
+                photoURL: null,
                 settings: { restTime: 60 },
                 lastLifts: {},
                 statsHistory: [],
@@ -175,25 +156,52 @@ const app = {
 const admin = {
     render: () => {
         const select = document.getElementById('admin-exercise-select');
-        if(!select) return;
-        select.innerHTML = '<option value="">Selecciona ejercicio...</option>';
-        EXERCISES.forEach((ex, idx) => {
-            select.innerHTML += `<option value="${idx}">${ex.n} (${ex.m})</option>`;
-        });
+        if(select) {
+            select.innerHTML = '<option value="">Selecciona ejercicio...</option>';
+            EXERCISES.forEach((ex, idx) => {
+                select.innerHTML += `<option value="${idx}">${ex.n} (${ex.m})</option>`;
+            });
+        }
         state.newRoutine = [];
         admin.renderPreview();
+        admin.renderUsers();
+    },
+
+    renderUsers: async () => {
+        const list = document.getElementById('admin-users-list');
+        if(!list) return;
+        list.innerHTML = 'Cargando...';
+
+        try {
+            const q = query(collection(db, "users"));
+            const snapshot = await getDocs(q);
+            list.innerHTML = '';
+
+            snapshot.forEach(docSnap => {
+                const u = docSnap.data();
+                const avatar = u.photoURL || 'assets/placeholder-body.png';
+                
+                list.innerHTML += `
+                    <div class="user-row">
+                        <img src="${avatar}" class="user-avatar-small">
+                        <div class="user-info">
+                            <h5>${u.name}</h5>
+                            <span>${u.email}</span>
+                        </div>
+                        <span class="user-role-badge">${u.role}</span>
+                    </div>
+                `;
+            });
+        } catch (e) { list.innerHTML = 'Error al cargar usuarios'; }
     },
 
     addExerciseToRoutine: () => {
         const idx = document.getElementById('admin-exercise-select').value;
         if(!idx) return;
         const exData = EXERCISES[idx];
-        
         state.newRoutine.push({
             ...exData,
-            defaultSets: [
-                {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16}
-            ]
+            defaultSets: [ {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16} ]
         });
         admin.renderPreview();
     },
@@ -220,7 +228,7 @@ const admin = {
                 createdBy: state.user.uid,
                 createdAt: new Date()
             });
-            alert("¡Rutina creada!");
+            alert("Rutina creada");
             state.newRoutine = [];
             document.getElementById('new-routine-name').value = '';
             admin.renderPreview();
@@ -230,11 +238,6 @@ const admin = {
 
 const dashboard = {
     render: async () => {
-        if(state.profile && !state.profile.approved && state.profile.role !== 'admin') {
-            const warn = document.getElementById('pending-approval');
-            if(warn) warn.classList.remove('hidden');
-        }
-
         const container = document.getElementById('routines-list');
         if(!container) return;
         container.innerHTML = '<div style="text-align:center; padding:20px">Cargando...</div>';
@@ -243,25 +246,19 @@ const dashboard = {
             const q = query(collection(db, "routines"));
             const snapshot = await getDocs(q);
             container.innerHTML = '';
-            
-            if(snapshot.empty) {
-                container.innerHTML = '<p style="text-align:center; color:#666">No hay rutinas asignadas.</p>';
-                return;
-            }
+            if(snapshot.empty) return container.innerHTML = '<p style="text-align:center">Sin rutinas.</p>';
 
             snapshot.forEach(doc => {
                 const r = doc.data();
-                const card = document.createElement('div');
-                card.className = 'exercise-card';
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center">
-                        <h3 style="margin:0">${r.name}</h3>
-                        <i class="material-icons-round" style="color:var(--neon-green)">fitness_center</i>
-                    </div>
-                    <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
-                    <button class="btn-primary" style="margin-top:10px" onclick="workoutManager.start('${doc.id}', '${r.name}')">INICIAR</button>
-                `;
-                container.appendChild(card);
+                container.innerHTML += `
+                    <div class="exercise-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center">
+                            <h3 style="margin:0">${r.name}</h3>
+                            <i class="material-icons-round" style="color:var(--neon-green)">fitness_center</i>
+                        </div>
+                        <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
+                        <button class="btn-primary" style="margin-top:10px" onclick="workoutManager.start('${doc.id}', '${r.name}')">INICIAR</button>
+                    </div>`;
             });
         } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
     }
@@ -298,7 +295,7 @@ const workoutManager = {
     },
 
     cancelWorkout: () => {
-        if(confirm("¿Cancelar entreno? Se perderán los datos.")) {
+        if(confirm("¿Cancelar entreno?")) {
             localStorage.removeItem(`bcn_workout_${state.user.uid}`);
             state.activeWorkout = null;
             app.navTo('dashboard');
@@ -311,24 +308,20 @@ const workoutManager = {
         container.innerHTML = '';
         
         state.activeWorkout.exercises.forEach((ex, exIdx) => {
-            const div = document.createElement('div');
-            div.className = 'exercise-card';
-            
             const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
-            
-            div.innerHTML = `
-                <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
-                    <img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'">
-                    <div>
-                        <h3 style="font-size:16px; margin:0">${ex.n}</h3>
-                        <small style="color:var(--neon-green)">${ex.m}</small>
+            container.innerHTML += `
+                <div class="exercise-card">
+                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
+                        <img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'">
+                        <div>
+                            <h3 style="font-size:16px; margin:0">${ex.n}</h3>
+                            <small style="color:var(--neon-green)">${ex.m}</small>
+                        </div>
+                        ${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}
                     </div>
-                    ${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}
-                </div>
-                <div id="sets-list-${exIdx}"></div>
-                <button class="btn-text" style="width:100%; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button>
-            `;
-            container.appendChild(div);
+                    <div id="sets-list-${exIdx}"></div>
+                    <button class="btn-text" style="width:100%; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button>
+                </div>`;
             workoutManager.renderSets(exIdx);
         });
     },
@@ -336,11 +329,7 @@ const workoutManager = {
     renderSets: (exIdx) => {
         const list = document.getElementById(`sets-list-${exIdx}`);
         const ex = state.activeWorkout.exercises[exIdx];
-        
-        // RECUPERAR PREVIO
-        const prevWeight = state.profile.lastLifts && state.profile.lastLifts[ex.n] 
-            ? state.profile.lastLifts[ex.n] + 'kg' 
-            : '--';
+        const prevWeight = state.profile.lastLifts && state.profile.lastLifts[ex.n] ? state.profile.lastLifts[ex.n] + 'kg' : '--';
 
         list.innerHTML = ex.sets.map((set, sIdx) => `
             <div class="set-row ${set.done ? 'set-completed' : ''}">
@@ -369,7 +358,6 @@ const workoutManager = {
     toggleSet: (exIdx, sIdx) => {
         const set = state.activeWorkout.exercises[exIdx].sets[sIdx];
         set.done = !set.done;
-        
         if(set.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
             const restTime = state.profile.settings?.restTime || 60;
@@ -383,7 +371,6 @@ const workoutManager = {
         const modal = document.getElementById('rest-modal');
         modal.classList.remove('hidden');
         let remaining = sec;
-        
         if(state.restTimer) clearInterval(state.restTimer);
         
         const updateDisplay = (r) => {
@@ -409,9 +396,7 @@ const workoutManager = {
         document.getElementById('rest-modal').classList.add('hidden');
     },
 
-    adjustRest: (amount) => {
-        console.log("Ajuste rest: " + amount);
-    },
+    adjustRest: (amount) => console.log("Ajuste rest: " + amount),
 
     startGlobalTimer: () => {
         setInterval(() => {
@@ -435,7 +420,6 @@ const workoutManager = {
                 notes: document.getElementById('workout-notes').value
             });
 
-            // Actualizar récords personales
             const newLifts = {};
             state.activeWorkout.exercises.forEach(ex => {
                 let maxWeight = 0;
@@ -448,7 +432,6 @@ const workoutManager = {
 
             if(Object.keys(newLifts).length > 0) {
                 await updateDoc(doc(db, "users", state.user.uid), newLifts);
-                // Actualizar local
                 state.activeWorkout.exercises.forEach(ex => {
                     let maxWeight = 0;
                     ex.sets.forEach(s => { if(parseFloat(s.kg) > maxWeight) maxWeight = parseFloat(s.kg); });
@@ -473,12 +456,66 @@ const profile = {
     render: () => {
         if(!state.profile) return;
         document.getElementById('profile-name').innerText = state.profile.name;
-        document.getElementById('profile-initials').innerText = state.profile.name.substring(0,2).toUpperCase();
+        // Mostrar foto si existe (Base64)
+        const imgEl = document.getElementById('profile-img');
+        if(state.profile.photoURL) imgEl.src = state.profile.photoURL;
         
         const restInput = document.getElementById('conf-rest-time');
         if(restInput) restInput.value = state.profile.settings?.restTime || 60;
         
         profile.renderCharts();
+    },
+
+    // --- NUEVO: SUBIDA DE FOTOS SIN STORAGE (Base64) ---
+    uploadPhoto: (input) => {
+        const file = input.files[0];
+        if(!file) return;
+
+        // Limite de tamaño: 2MB (Firestore aguanta 1MB, comprimimos por si acaso)
+        if(file.size > 2 * 1024 * 1024) {
+            return alert("La imagen es muy grande. Intenta con una más pequeña.");
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = async () => {
+                // Comprimir usando Canvas
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Redimensionar si es muy grande (Max 300x300 px es suficiente para avatar)
+                const MAX_SIZE = 300;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+                } else {
+                    if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Obtener string Base64 (JPG calidad 0.7)
+                const base64String = canvas.toDataURL('image/jpeg', 0.7);
+
+                try {
+                    // Guardar STRING directamente en Firestore
+                    await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64String });
+                    state.profile.photoURL = base64String;
+                    document.getElementById('profile-img').src = base64String;
+                    alert("Foto actualizada");
+                } catch(err) {
+                    console.error(err);
+                    alert("Error al guardar foto (¿Es demasiado grande?)");
+                }
+            };
+        };
+        reader.readAsDataURL(file);
     },
 
     saveSettings: async () => {
@@ -496,13 +533,13 @@ const profile = {
         const f = document.getElementById('stats-fat').value;
         const m = document.getElementById('stats-muscle').value;
 
-        if(!w) return alert("Pon el peso");
+        if(!w) return alert("Pon al menos el peso");
 
         const newEntry = {
             date: new Date(),
             weight: parseFloat(w),
-            fat: f ? parseFloat(f) : null,
-            muscle: m ? parseFloat(m) : null
+            fat: f ? parseFloat(f) : 0,
+            muscle: m ? parseFloat(m) : 0
         };
 
         try {
@@ -513,44 +550,53 @@ const profile = {
             state.profile.statsHistory.push(newEntry);
             
             document.getElementById('stats-weight').value = '';
+            document.getElementById('stats-fat').value = '';
+            document.getElementById('stats-muscle').value = '';
+            
             alert("Registrado");
             profile.renderCharts();
         } catch(e) { alert("Error"); }
     },
 
     renderCharts: () => {
-        const ctx = document.getElementById('weightChart').getContext('2d');
         const history = state.profile.statsHistory || [];
         history.sort((a,b) => (a.date.seconds || a.date) - (b.date.seconds || b.date));
-
-        if(window.myChart) window.myChart.destroy();
-
-        window.myChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: history.map(h => {
-                    const d = h.date.seconds ? new Date(h.date.seconds * 1000) : new Date(h.date);
-                    return d.toLocaleDateString();
-                }),
-                datasets: [{
-                    label: 'Peso (kg)',
-                    data: history.map(h => h.weight),
-                    borderColor: '#39ff14',
-                    backgroundColor: 'rgba(57, 255, 20, 0.1)',
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { 
-                    y: { grid: { color: '#222' } }, 
-                    x: { grid: { color: '#222' } } 
-                },
-                plugins: { legend: { display: false } }
-            }
+        
+        const labels = history.map(h => {
+            const d = h.date.seconds ? new Date(h.date.seconds * 1000) : new Date(h.date);
+            return d.toLocaleDateString();
         });
+
+        const createChart = (id, label, data, color) => {
+            const ctx = document.getElementById(id);
+            if(!ctx) return;
+            if(ctx.chartInstance) ctx.chartInstance.destroy();
+            
+            ctx.chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: color + '20',
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { grid: { color: '#222' } }, x: { grid: { color: '#222' } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        };
+
+        createChart('weightChart', 'Peso (kg)', history.map(h => h.weight), '#39ff14');
+        createChart('fatChart', '% Grasa', history.map(h => h.fat || 0), '#ff3b30');
+        createChart('muscleChart', '% Músculo', history.map(h => h.muscle || 0), '#00d4ff');
     },
 
     requestNotify: () => {
