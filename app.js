@@ -50,7 +50,6 @@ const app = {
             if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.refreshAll(); }
             else { adminBtn.classList.add('hidden'); }
         }
-        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         app.hideSplash();
@@ -62,10 +61,11 @@ const app = {
         const isAuth = ['login', 'register'].includes(viewId);
         document.getElementById('app-header').classList.toggle('hidden', isAuth);
         document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
+        
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         if(viewId === 'dashboard') document.querySelector('[onclick*="dashboard"]')?.classList.add('active');
-        if(viewId === 'workout') document.querySelector('[onclick*="workout"]')?.classList.add('active');
         if(viewId === 'profile') document.querySelector('[onclick*="profile"]')?.classList.add('active');
+
         if(viewId === 'dashboard') dashboard.render();
         if(viewId === 'profile') profile.render();
         if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
@@ -79,34 +79,50 @@ const app = {
 const admin = {
     refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
     renderUsers: async () => {
-        const list = document.getElementById('admin-users-list'); const select = document.getElementById('assign-client-select'); if(!list) return;
+        const list = document.getElementById('admin-users-list');
+        const select = document.getElementById('assign-client-select');
+        if(!list) return;
         list.innerHTML = 'Cargando...';
         try {
-            const routinesQ = query(collection(db, "routines")); const routinesSnap = await getDocs(routinesQ);
-            const routineCounts = {}; routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
-            const q = query(collection(db, "users")); const snapshot = await getDocs(q);
-            list.innerHTML = ''; state.allClients = []; select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
+            const routinesSnap = await getDocs(query(collection(db, "routines")));
+            const routineCounts = {};
+            routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
+
+            // CONSULTA SIMPLE PARA EVITAR ERROR DE INDICE
+            const snapshot = await getDocs(collection(db, "users"));
+            list.innerHTML = ''; state.allClients = [];
+            select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
+            
             snapshot.forEach(docSnap => {
                 const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
-                const avatar = u.photoURL || 'assets/placeholder-body.png'; const rCount = routineCounts[docSnap.id] || 0;
-                list.innerHTML += `<div class="user-row"><img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')"><div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
+                const avatar = u.photoURL || 'assets/placeholder-body.png';
+                const rCount = routineCounts[docSnap.id] || 0;
+                list.innerHTML += `
+                    <div class="user-row">
+                        <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
+                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div>
+                        <div class="user-actions">
+                            ${!u.approved ? `<button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', true)">APROBAR</button>` : ''}
+                            <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
+                        </div>
+                    </div>`;
                 select.innerHTML += `<option value="${docSnap.id}">${u.name}</option>`;
             });
-        } catch (e) { list.innerHTML = 'Error cargando usuarios'; }
+        } catch (e) { console.error(e); list.innerHTML = 'Error cargando usuarios. (Revisa consola)'; }
     },
     deleteUser: async (uid, name) => { if(!confirm(`¿Eliminar a ${name}?`)) return; if(!confirm("⚠️ Acción irreversible. ¿Continuar?")) return; try { await deleteDoc(doc(db, "users", uid)); alert("Eliminado"); admin.renderUsers(); } catch(e) { alert("Error"); } },
     toggleApproval: async (uid, status) => { await updateDoc(doc(db, "users", uid), { approved: status }); admin.renderUsers(); },
     
     viewClient: async (userId) => {
-        state.currentClientId = userId; // Guardar ID para clonar luego
+        state.currentClientId = userId;
         let user = state.allClients.find(c => c.id === userId);
         if(!user) { const docSnap = await getDoc(doc(db, "users", userId)); user = { id: docSnap.id, ...docSnap.data() }; }
+        
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
         const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
         document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--'; document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--'; document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
         
-        // Historial
         const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(10));
@@ -126,23 +142,25 @@ const admin = {
         chartHelpers.renderLine('clientFatChart', user.statsHistory||[], 'fat', '#ff3b30');
         chartHelpers.renderLine('clientMuscleChart', user.statsHistory||[], 'muscle', '#00d4ff');
         
-        // Renderizar Rutinas del Cliente en su ficha
         admin.renderClientRoutines(userId);
         app.navTo('client-detail');
     },
 
     renderClientRoutines: async (userId) => {
-        const container = document.getElementById('client-routines-list'); container.innerHTML = 'Cargando rutinas...';
+        const container = document.getElementById('client-routines-list'); container.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "routines"), where("assignedTo", "==", userId));
             const snapshot = await getDocs(q); container.innerHTML = '';
-            if(snapshot.empty) container.innerHTML = '<p style="font-size:12px; color:#666">Sin rutinas asignadas.</p>';
+            if(snapshot.empty) container.innerHTML = '<p style="font-size:12px; color:#666">Sin rutinas.</p>';
             snapshot.forEach(doc => { const r = doc.data(); container.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center"><span style="font-size:13px">${r.name}</span><button class="icon-btn" onclick="admin.deleteRoutine('${doc.id}')" style="color:#ff3b30; font-size:16px"><i class="material-icons-round">delete</i></button></div>`; });
             
-            // Llenar select clonar
             const select = document.getElementById('client-clone-select'); select.innerHTML = '<option value="" disabled selected>Seleccionar base...</option>';
             const allRoutines = await getDocs(query(collection(db, "routines")));
-            allRoutines.forEach(doc => { if(doc.data().assignedTo !== userId) select.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`; });
+            allRoutines.forEach(doc => { 
+                const d = doc.data();
+                // Solo mostrar rutinas que NO sean de este usuario para clonar
+                if(d.assignedTo !== userId) select.innerHTML += `<option value="${doc.id}">${d.name}</option>`; 
+            });
         } catch(e) { console.log(e); }
     },
 
@@ -172,7 +190,7 @@ const admin = {
         try {
             const docSnap = await getDoc(doc(db, "routines", routineId)); const data = docSnap.data();
             await addDoc(collection(db, "routines"), { ...data, assignedTo: targetUserId, createdAt: new Date(), name: data.name });
-            alert("Rutina clonada exitosamente");
+            alert("Clonada"); 
             if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(targetUserId);
             else admin.renderExistingRoutines();
         } catch(e) { alert("Error al clonar"); }
