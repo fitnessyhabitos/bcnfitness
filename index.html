@@ -51,7 +51,6 @@
                     <button type="submit" class="btn-primary">ENTRAR</button>
                 </form>
                 <p class="text-link" onclick="app.navTo('register')">Crear cuenta</p>
-                
                 <div class="install-box">
                     <div class="install-header"><i class="material-icons-round" style="color:var(--neon-green)">download</i><span>INSTALAR APP</span></div>
                     <div class="install-content">
@@ -83,7 +82,7 @@
             
             <div class="section-card" id="weekly-progress-card">
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px">
-                    <span>Objetivo Semanal</span>
+                    <span>Semana Actual</span>
                     <strong id="weekly-count" style="color:var(--neon-green)">0/0</strong>
                 </div>
                 <div class="progress-bar-bg"><div id="weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
@@ -91,10 +90,6 @@
 
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
-            
-            <button class="fab-play" onclick="document.querySelector('.btn-primary')?.click()">
-                <i class="material-icons-round">play_arrow</i>
-            </button>
         </section>
 
         <section id="view-admin" class="view hidden">
@@ -102,18 +97,29 @@
                 <h3 style="color:var(--neon-green)">PANEL COACH</h3>
                 <button class="btn-text" onclick="admin.refreshAll()" style="width:auto; margin:0">↻ Refrescar</button>
             </div>
-            <div class="section-card"><h4>Clientes</h4><div id="admin-users-list" class="users-list-container"></div></div>
             
             <div class="section-card">
-                <h4>Crear Nueva Rutina (Base)</h4>
-                <input type="text" id="new-routine-name" placeholder="Nombre Rutina Base">
+                <h4>Clientes</h4>
+                <div id="admin-users-list" class="users-list-container"></div>
+            </div>
+
+            <div class="section-card">
+                <h4>Crear Rutina Base</h4>
+                <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
+                <label style="font-size:12px; color:#888">Asignar a:</label>
+                <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
                 <div class="exercise-selector" style="margin-top:15px">
                     <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." style="margin-bottom:5px">
                     <select id="admin-exercise-select" style="margin-bottom:10px"></select>
                     <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR</button>
                 </div>
                 <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
-                <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR EN BASE DE DATOS</button>
+                <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR</button>
+            </div>
+
+            <div class="section-card">
+                <h4>Todas las Rutinas</h4>
+                <div id="admin-routines-management" class="users-list-container"></div>
             </div>
         </section>
 
@@ -122,7 +128,6 @@
                 <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
-
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
                 <div class="row" style="margin-top:15px; text-align:center">
@@ -131,21 +136,19 @@
                     <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
                 </div>
             </div>
-
             <div class="section-card" style="border-left: 4px solid #00d4ff">
-                <h4>Rutinas Asignadas</h4>
+                <h4>Rutinas Activas</h4>
                 <div id="client-routines-list"></div>
-                <label style="font-size:12px; color:#888; margin-top:15px; display:block">Asignar nueva rutina (Clonar):</label>
-                <div style="display:flex; gap:10px">
-                    <select id="client-clone-select" style="margin:0"></select>
-                    <button class="btn-secondary" style="width:auto; margin:0" onclick="admin.cloneRoutineFromClientView()">+</button>
+                <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px">
+                    <label style="font-size:12px; color:#888;">Asignar copia de:</label>
+                    <div style="display:flex; gap:10px">
+                        <select id="client-clone-select" style="margin:0"></select>
+                        <button class="btn-secondary" style="width:auto; margin:0" onclick="admin.cloneRoutineFromClientView()">+</button>
+                    </div>
                 </div>
             </div>
-
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
-            <div class="section-card"><h4>Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
-            <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
-            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
+            <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
 
@@ -254,7 +257,6 @@
 
     <nav id="bottom-nav" class="hidden">
         <a onclick="app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></a>
-        <a onclick="app.navTo('workout')" class="nav-item"><i class="material-icons-round">fitness_center</i><span>Entreno</span></a>
         <a onclick="app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></a>
     </nav>
 
