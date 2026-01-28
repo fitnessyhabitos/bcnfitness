@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// CONFIG
+// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -19,12 +19,14 @@ const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
 
-// --- HELPER NORMALIZAR TEXTO (Buscador insensible) ---
+// --- HELPER NORMALIZAR TEXTO (Buscador) ---
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const app = {
     init: () => {
+        // Seguro para el logo por si Firebase tarda
         setTimeout(() => { const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none'; }, 4000);
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
@@ -70,7 +72,7 @@ const app = {
         document.getElementById('view-'+viewId).classList.remove('hidden'); document.getElementById('view-'+viewId).classList.add('active');
         const isAuth = ['login', 'register'].includes(viewId);
         document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || view === 'workout');
+        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
         if(viewId === 'dashboard') dashboard.render();
         if(viewId === 'profile') profile.render();
         if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
@@ -106,8 +108,7 @@ const admin = {
         const user = state.allClients.find(c => c.id === uid); if(!user) return;
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
-        document.getElementById('client-detail-img').src = user.photoURL || 'https://placehold.co/100x100/333/39ff14?text=IMG';
-        
+        document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
@@ -116,8 +117,8 @@ const admin = {
         
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
-        const snap = await getDocs(q);
-        const workouts = []; snap.forEach(d => workouts.push(d.data()));
+        const snapshot = await getDocs(q);
+        const workouts = []; snapshot.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
         
         hList.innerHTML = ''; const mCounts = {};
@@ -130,10 +131,9 @@ const admin = {
             div.onclick = () => profile.showWorkoutDetails(w);
             hList.appendChild(div);
         });
-        
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
-            const lineData = [...(user.statsHistory || [])].sort((a,b) => (a.date.seconds||new Date(a.date)) - (b.date.seconds||new Date(b.date)));
+            const lineData = [...(user.statsHistory || [])].sort((a,b) => a.date.seconds - b.date.seconds);
             window.chartHelpers.renderLine('clientWeightChart', lineData, 'weight', '#39ff14');
             window.chartHelpers.renderLine('clientFatChart', lineData, 'fat', '#ff3b30');
             window.chartHelpers.renderLine('clientMuscleChart', lineData, 'muscle', '#00d4ff');
@@ -184,11 +184,10 @@ const admin = {
     filterExercises: (t) => { const s = document.getElementById('admin-exercise-select'); s.innerHTML = ''; EXERCISES.forEach((e,i) => { if(normalizeText(e.n).includes(normalizeText(t))) s.innerHTML += `<option value="${i}">${e.n}</option>`; }); },
     addExerciseToRoutine: () => { 
         const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; 
-        // 5 SERIES (20-16-16-16-16)
+        // 5 SERIES DEFAULT (20-16-16-16-16)
         state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
         admin.renderPreview(); 
     },
-    // RENDER PREVIEW CON BOTONES + Y -
     renderPreview: () => { 
         const div = document.getElementById('admin-routine-preview');
         div.innerHTML = state.newRoutine.map((e, exIdx) => `
@@ -234,6 +233,7 @@ const dashboard = {
         try {
             const now = new Date(); const day = now.getDay() || 7;
             const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
+            
             const q = query(collection(db, "workouts"), where("userId", "==", uid));
             const snap = await getDocs(q);
             let count = 0;
@@ -273,9 +273,8 @@ const workoutManager = {
                 if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
-                // INPUTS DESHABILITADOS SI DONE
-                const disabled = s.done ? 'disabled' : '';
-                html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" ${disabled} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" ${disabled} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
+                const dis = s.done ? 'disabled' : '';
+                html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
             });
             div.innerHTML += `<div class="exercise-card"><h3>${ex.n}</h3>${html}</div>`;
         });
@@ -338,7 +337,7 @@ const workoutManager = {
 const profile = {
     render: () => {
         document.getElementById('profile-name').innerText = state.profile.name;
-        // PHOTO IMMEDIATE UPDATE FIX
+        // PHOTO DOM UPDATE IMMEDIATE
         const img = document.getElementById('profile-img');
         if(state.profile.photoURL) img.src = state.profile.photoURL;
         
@@ -348,7 +347,6 @@ const profile = {
         profile.renderCharts(); profile.loadRadar();
         profile.switchTab('stats');
     },
-    
     switchTab: (tab) => {
         ['stats', 'history', 'config'].forEach(t => {
             document.getElementById(`tab-${t}`).classList.add('hidden');
@@ -358,7 +356,6 @@ const profile = {
         document.getElementById(`tab-btn-${tab}`).classList.add('active');
         if(tab === 'history') profile.loadHistory();
     },
-
     loadRadar: async () => {
         const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
         const snap = await getDocs(q);
@@ -369,13 +366,12 @@ const profile = {
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
         if(w) { 
-            const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
+            const newEntry = {date: new Date(), weight:w, fat:f, muscle:m};
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
-            // UPDATE LOCAL STATE FOR CHART
+            // FORCE UPDATE LOCAL
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
-            alert("Guardado");
-            profile.renderCharts(); 
+            alert("Guardado"); profile.renderCharts(); 
         }
     },
     saveSettings: async () => {
@@ -415,19 +411,16 @@ const profile = {
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64 = e.target.result;
-            // UPDATE UI IMMEDIATELY
+            // FORCE DOM UPDATE
             document.getElementById('profile-img').src = base64;
-            // UPDATE STATE & DB
             state.profile.photoURL = base64;
             await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
         };
         reader.readAsDataURL(file);
     },
 
-    // RENDERIZAR GRAFICAS PERFIL (CON DATOS LOCALES)
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
-        // Sort safely handling both Firestore Timestamp and Date object
         history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
         
         if(window.chartHelpers) {
