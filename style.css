@@ -28,6 +28,10 @@ h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; marg
 }
 #main-container::-webkit-scrollbar { display: none; }
 
+/* BARRA PROGRESO SEMANAL */
+.progress-bar-bg { background: #222; height: 10px; border-radius: 5px; width: 100%; overflow: hidden; border: 1px solid #333; }
+.progress-bar-fill { background: var(--neon-green); height: 100%; transition: width 0.5s; box-shadow: 0 0 10px rgba(57,255,20,0.5); }
+
 /* COMPONENTES */
 .btn-primary { background: var(--neon-green); color: black; font-weight: 900; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; text-transform: uppercase; font-family: 'Russo One'; box-shadow: 0 4px 15px rgba(57, 255, 20, 0.3); cursor: pointer; margin-top: 10px; }
 .btn-secondary { background: #333; color: white; border: none; padding: 12px; border-radius: 6px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 5px; }
@@ -79,6 +83,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--neon-green); out
 .btn-green { background: #4cd964; color: black; }
 .btn-blue { background: #00d4ff; color: black; }
 .btn-delete { background: #ff3b30; color: white; }
+.routine-count-badge { margin-left: 5px; font-size: 11px; background: #444; padding: 2px 5px; border-radius: 3px; color: #fff; }
 
 /* ROUTINE EDITOR */
 .routine-edit-row { background: #222; padding: 10px; margin-bottom: 5px; border-radius: 5px; }
