@@ -3,125 +3,102 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BCN Fitness</title>
     <link rel="apple-touch-icon" href="logo.png">
-    <link rel="manifest" href="manifest.json">
     <link rel="icon" href="logo.png" type="image/png">
     <meta name="theme-color" content="#000000">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <div id="splash-screen">
-        <img src="logo.png" alt="BCN Fitness" class="pulse-logo">
-        <h1 class="logo-text">BCN FITNESS</h1>
+        <img src="logo.png" alt="BCN Fitness" class="pulse-logo" onerror="this.style.display='none'">
+        <h1 style="color:white; margin-top:20px; font-family:'Russo One'">BCN FITNESS</h1>
     </div>
-
     <header id="app-header" class="hidden">
         <div style="display:flex; align-items:center; gap:10px">
             <img src="logo.png" alt="Logo" style="height:30px; border-radius:50%">
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')">
-                <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
-            </button>
+            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')"><i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i></button>
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
-
     <main id="main-container">
-        
         <section id="view-login" class="view active">
-            <div class="login-wrapper">
-                <img src="logo.png" alt="Logo" width="120" class="login-logo" style="border-radius:50%">
-                <h1>BCN FITNESS</h1>
+            <div class="login-wrapper" style="text-align:center; padding-top:20px">
+                <img src="logo.png" alt="Logo" width="100" style="border-radius:50%; margin-bottom:20px">
+                <h1 style="color:var(--neon-green)">BCN FITNESS</h1>
                 <form id="login-form">
-                    <div class="input-group"><i class="material-icons-round">email</i><input type="email" id="login-email" placeholder="Email" required></div>
-                    <div class="input-group"><i class="material-icons-round">lock</i><input type="password" id="login-password" placeholder="Contraseña" required></div>
+                    <input type="email" id="login-email" placeholder="Email" required style="margin-bottom:10px">
+                    <input type="password" id="login-password" placeholder="Contraseña" required>
                     <button type="submit" class="btn-primary">ENTRAR</button>
                 </form>
-                <p class="text-link" onclick="window.app.navTo('register')">Crear cuenta</p>
-                
+                <p onclick="window.app.navTo('register')" style="color:#888; margin-top:20px; cursor:pointer">Crear cuenta</p>
                 <div class="install-box">
-                    <div class="install-header"><i class="material-icons-round" style="color:var(--neon-green)">download</i> INSTALAR APP</div>
-                    <div class="install-content">
-                        <div class="install-row"><div class="brand-badge"><i class="material-icons-round">phone_iphone</i> iOS</div><div class="install-desc">Pulsa <i class="material-icons-round tiny">ios_share</i> y <strong>"Añadir a inicio"</strong></div></div>
-                        <div class="install-divider"></div>
-                        <div class="install-row"><div class="brand-badge"><i class="material-icons-round">android</i> Android</div><div class="install-desc">Pulsa <i class="material-icons-round tiny">more_vert</i> y <strong>"Instalar App"</strong></div></div>
-                    </div>
+                    <div class="install-header"><i class="material-icons-round">download</i> INSTALAR APP</div>
+                    <div class="install-row"><div class="brand-badge"><i class="material-icons-round">phone_iphone</i> iOS</div><span class="install-desc">Pulsa <i class="material-icons-round tiny">ios_share</i> y <strong>"Añadir a inicio"</strong></span></div>
+                    <div class="install-divider"></div>
+                    <div class="install-row"><div class="brand-badge"><i class="material-icons-round">android</i> Android</div><span class="install-desc">Pulsa <i class="material-icons-round tiny">more_vert</i> y <strong>"Instalar"</strong></span></div>
                 </div>
             </div>
         </section>
-
         <section id="view-register" class="view hidden">
-            <h2 class="section-title">NUEVO PERFIL</h2>
+            <h2>NUEVO PERFIL</h2>
             <form id="register-form">
-                <input type="text" id="reg-name" placeholder="Nombre Completo" required>
+                <input type="text" id="reg-name" placeholder="Nombre" required>
                 <input type="email" id="reg-email" placeholder="Email" required>
                 <input type="password" id="reg-pass" placeholder="Contraseña" required>
-                <label style="color:#888; font-size:12px; margin-left:5px">Rol</label>
-                <select id="reg-role-select" style="margin-bottom:15px"><option value="cliente">Cliente</option><option value="atleta">Atleta</option></select>
-                <div class="row"><input type="number" id="reg-age" placeholder="Edad" required style="width: 48%"><select id="reg-sex" style="width: 48%"><option value="male">Hombre</option><option value="female">Mujer</option></select></div>
-                <input type="text" id="reg-code" placeholder="CÓDIGO SECRETO" required class="input-code">
+                <select id="reg-role-select"><option value="cliente">Cliente</option><option value="atleta">Atleta</option></select>
+                <input type="number" id="reg-age" placeholder="Edad">
+                <input type="text" id="reg-code" placeholder="CÓDIGO SECRETO" required>
                 <button type="submit" class="btn-primary">REGISTRARSE</button>
-                <button type="button" class="btn-text" onclick="window.app.navTo('login')">Cancelar</button>
+                <button type="button" class="btn-secondary" onclick="window.app.navTo('login')">VOLVER</button>
             </form>
         </section>
-
         <section id="view-dashboard" class="view hidden">
             <div id="pending-approval" class="hidden warning-box">⚠️ Tu cuenta espera aprobación.</div>
-            <div class="section-card" id="weekly-progress-card">
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px">
-                    <span>Semana Actual</span>
-                    <strong id="weekly-count" style="color:var(--neon-green)">0/0</strong>
-                </div>
+            <div class="section-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px"><span>Semana Actual</span><strong id="weekly-count" style="color:var(--neon-green)">0/0</strong></div>
                 <div class="progress-bar-bg"><div id="weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
             </div>
             <h3>Tus Rutinas</h3>
-            <div id="routines-list" class="card-list"></div>
+            <div id="routines-list">Cargando...</div>
         </section>
-
         <section id="view-admin" class="view hidden">
             <h3 style="color:var(--neon-green)">PANEL COACH</h3>
-            <div class="section-card"><h4>Clientes</h4><div id="admin-users-list" class="users-list-container"></div></div>
+            <div class="section-card"><h4>Clientes</h4><div id="admin-users-list"></div></div>
             <div class="section-card">
                 <h4>Crear Rutina Base</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
-                <label style="font-size:12px; color:#888">Asignar a:</label>
-                <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
-                <div class="exercise-selector" style="margin-top:15px">
-                    <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." style="margin-bottom:5px">
-                    <select id="admin-exercise-select" style="margin-bottom:10px"></select>
+                <div style="margin-top:10px">
+                    <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio...">
+                    <select id="admin-exercise-select" style="margin-top:5px; width:100%"></select>
                     <button class="btn-secondary" onclick="window.admin.addExerciseToRoutine()">+ AÑADIR</button>
                 </div>
-                <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
-                <button class="btn-primary" style="margin-top:20px" onclick="window.admin.saveRoutine()">GUARDAR</button>
+                <div id="admin-routine-preview" style="margin-top:10px; border-top:1px solid #333"></div>
+                <button class="btn-primary" onclick="window.admin.saveRoutine()">GUARDAR</button>
             </div>
-            <div class="section-card"><h4>Todas las Rutinas</h4><div id="admin-routines-management" class="users-list-container"></div></div>
+            <div class="section-card"><h4>Todas las Rutinas</h4><div id="admin-routines-management"></div></div>
         </section>
-
         <section id="view-client-detail" class="view hidden">
             <div class="workout-sticky-header">
                 <button class="icon-btn" onclick="window.app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
-                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
+                <h3 id="client-detail-name">Cliente</h3><div style="width:30px"></div>
             </div>
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
                 <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
-                <div class="row" style="margin-top:15px; text-align:center">
-                    <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><div style="font-size:10px">PESO</div></div>
-                    <div><strong id="cd-fat" style="color:#ff3b30">--</strong><div style="font-size:10px">GRASA</div></div>
-                    <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
+                <div class="row" style="margin-top:10px">
+                    <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><br><small>Peso</small></div>
+                    <div><strong id="cd-fat" style="color:orange">--</strong><br><small>Grasa</small></div>
+                    <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><br><small>Músculo</small></div>
                 </div>
                 <div style="margin-top:15px; background:#222; padding:10px; border-radius:8px; border:1px solid #333; text-align:left">
                     <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px"><span>Objetivo Semanal</span><strong id="client-weekly-count" style="color:var(--neon-green)">0/0</strong></div>
@@ -138,9 +115,10 @@
             </div>
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
+            <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
+            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
-
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
                 <div class="timer-box"><span class="timer-label">TIEMPO</span><span id="global-timer">00:00</span></div>
@@ -151,7 +129,6 @@
             </div>
             <div id="active-exercises-container"></div>
         </section>
-
         <section id="view-profile" class="view hidden">
             <div class="profile-header">
                 <div class="avatar-container" onclick="document.getElementById('avatar-input').click()">
@@ -187,42 +164,36 @@
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
-                    <h3>Objetivos</h3>
-                    <label>Días de entreno por semana:</label><input type="number" id="conf-weekly-goal" placeholder="4">
+                    <h3>Configuración</h3>
+                    <label>Objetivo Semanal (Días):</label><input type="number" id="conf-weekly-goal" placeholder="4">
                     <label>Tiempo Descanso (seg):</label><input type="number" id="conf-rest-time" placeholder="60">
-                    <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR CAMBIOS</button>
-                    <div class="settings-row" style="margin-top:20px; display:flex; justify-content:space-between;">
-                        <button class="btn-icon-large" onclick="window.profile.requestNotify()"><i class="material-icons-round">notifications_active</i><span>Avisos</span></button>
-                        <button class="btn-icon-large" onclick="window.profile.testSound()"><i class="material-icons-round">volume_up</i><span>Test Sonido</span></button>
+                    <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR</button>
+                    <div style="margin-top:15px; display:flex; gap:10px">
+                        <button class="btn-icon-large" onclick="window.profile.requestNotify()">🔔 Avisos</button>
+                        <button class="btn-icon-large" onclick="window.profile.testSound()">🔊 Test</button>
                     </div>
                 </div>
             </div>
         </section>
-
     </main>
-
-    <div id="toast-container"></div>
-
     <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
         <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
             <h1 id="rest-countdown">00:00</h1>
             <button onclick="window.workoutManager.stopRest()" class="btn-primary">¡SEGUIR!</button>
         </div>
     </div>
-
     <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
-            <h3>¿QUÉ TAL FUE?</h3>
+            <h3>¿Qué tal fue?</h3>
             <div class="traffic-light-container">
                 <button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')"><i class="material-icons-round">sentiment_satisfied</i><span>FÁCIL</span></button>
                 <button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')"><i class="material-icons-round">sentiment_neutral</i><span>MEDIO</span></button>
                 <button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')"><i class="material-icons-round">whatshot</i><span>DIFICIL</span></button>
             </div>
-            <textarea id="final-notes" placeholder="Notas del entreno..." style="width:100%"></textarea>
+            <textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea>
             <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button>
         </div>
     </div>
-
     <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;">
         <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
@@ -232,12 +203,11 @@
             <div id="wd-content"></div>
         </div>
     </div>
-
+    <div id="toast-container"></div>
     <nav id="bottom-nav" class="hidden">
-        <div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
+        <div onclick="window.app.navTo('dashboard')" class="nav-item"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
         <div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div>
     </nav>
-
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
     <script type="module" src="app.js"></script>
 </body>
