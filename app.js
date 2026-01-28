@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
+// TUS CLAVES
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,197 +18,99 @@ const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
 const state = {
-    user: null,
-    profile: null,
-    activeWorkout: null,
-    lastWorkoutData: null,
-    restTimer: null,
-    newRoutine: [], 
-    allClients: [], 
-    sounds: { beep: document.getElementById('timer-beep') },
-    wakeLock: null
+    user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null,
+    newRoutine: [], allClients: [], sounds: { beep: document.getElementById('timer-beep') }, wakeLock: null, currentClientId: null
 };
 
 const app = {
     init: () => {
         onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                state.user = user;
-                await app.loadProfile(user.uid);
-            } else {
-                state.user = null;
-                app.navTo('login');
-                app.hideSplash();
-            }
+            if (user) { state.user = user; await app.loadProfile(user.uid); }
+            else { state.user = null; app.navTo('login'); app.hideSplash(); }
         });
-
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         document.getElementById('login-form').onsubmit = app.handleLogin;
         document.getElementById('register-form').onsubmit = app.handleRegister;
         document.getElementById('exercise-search').addEventListener('input', (e) => admin.filterExercises(e.target.value));
     },
-
     loadProfile: async (uid) => {
         try {
             const docSnap = await getDoc(doc(db, "users", uid));
             if (docSnap.exists()) {
                 state.profile = docSnap.data();
                 if (!state.profile.settings) state.profile.settings = { restTime: 60, weeklyGoal: 3 };
-                if (!state.profile.records) state.profile.records = {}; // NUEVO: Para guardar 1RM
+                if (!state.profile.records) state.profile.records = {};
                 app.handleLoginSuccess();
-            } else {
-                await signOut(auth);
-                app.navTo('login');
-                app.hideSplash();
-            }
+            } else { await signOut(auth); app.navTo('login'); app.hideSplash(); }
         } catch (e) { console.error(e); }
     },
-
     handleLoginSuccess: () => {
         const adminBtn = document.getElementById('admin-btn');
         if (adminBtn) {
-            if(state.profile.role === 'admin' || state.profile.role === 'coach') {
-                adminBtn.classList.remove('hidden');
-                admin.refreshAll();
-            } else {
-                adminBtn.classList.add('hidden');
-            }
+            if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.refreshAll(); }
+            else { adminBtn.classList.add('hidden'); }
         }
-        
+        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
-        if(saved) workoutManager.resumeWorkout(JSON.parse(saved));
-        else {
-            app.navTo('dashboard');
-            dashboard.render();
-        }
+        if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         app.hideSplash();
     },
-
     navTo: (viewId) => {
-        document.querySelectorAll('.view').forEach(el => {
-            el.classList.remove('active');
-            el.classList.add('hidden');
-        });
-        const target = document.getElementById(`view-${viewId}`);
-        if(target) {
-            target.classList.remove('hidden');
-            target.classList.add('active');
-        }
-
+        document.querySelectorAll('.view').forEach(el => { el.classList.remove('active'); el.classList.add('hidden'); });
+        document.getElementById(`view-${viewId}`).classList.remove('hidden');
+        document.getElementById(`view-${viewId}`).classList.add('active');
         const isAuth = ['login', 'register'].includes(viewId);
-        const header = document.getElementById('app-header');
-        const nav = document.getElementById('bottom-nav');
-
-        if(header) header.classList.toggle('hidden', isAuth);
-        if(nav) nav.classList.toggle('hidden', isAuth || viewId === 'workout');
-
+        document.getElementById('app-header').classList.toggle('hidden', isAuth);
+        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         if(viewId === 'dashboard') document.querySelector('[onclick*="dashboard"]')?.classList.add('active');
+        if(viewId === 'workout') document.querySelector('[onclick*="workout"]')?.classList.add('active');
         if(viewId === 'profile') document.querySelector('[onclick*="profile"]')?.classList.add('active');
-
         if(viewId === 'dashboard') dashboard.render();
         if(viewId === 'profile') profile.render();
         if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
     },
-
-    hideSplash: () => {
-        const splash = document.getElementById('splash-screen');
-        if(splash) {
-            splash.style.opacity = '0';
-            setTimeout(() => splash.classList.add('hidden'), 500);
-        }
-    },
-
-    handleLogin: async (e) => {
-        e.preventDefault();
-        try {
-            await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value);
-        } catch (err) { alert(err.message); }
-    },
-
-    handleRegister: async (e) => {
-        e.preventDefault();
-        if(document.getElementById('reg-code').value !== 'bcnfitness') return alert("Código incorrecto");
-        try {
-            const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value);
-            const clientType = document.getElementById('reg-role-select').value;
-            await setDoc(doc(db, "users", cred.user.uid), {
-                name: document.getElementById('reg-name').value, email: document.getElementById('reg-email').value,
-                role: 'athlete', clientType: clientType, approved: false, photoURL: null,
-                settings: { restTime: 60, weeklyGoal: 3 }, records: {}, statsHistory: [], createdAt: new Date()
-            });
-        } catch (err) { alert(err.message); }
-    },
-
-    // FUNCIÓN PARA MOSTRAR AVISOS (RECORDS)
-    showToast: (msg, type = 'normal') => {
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        const icon = type === 'gold' ? 'emoji_events' : 'info';
-        toast.innerHTML = `<i class="material-icons-round">${icon}</i><span>${msg}</span>`;
-        container.appendChild(toast);
-        setTimeout(() => toast.remove(), 4000);
-    }
+    hideSplash: () => { const splash = document.getElementById('splash-screen'); if(splash) { splash.style.opacity = '0'; setTimeout(() => splash.classList.add('hidden'), 500); } },
+    handleLogin: async (e) => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } catch (err) { alert(err.message); } },
+    handleRegister: async (e) => { e.preventDefault(); if(document.getElementById('reg-code').value !== 'bcnfitness') return alert("Código incorrecto"); try { const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value); const clientType = document.getElementById('reg-role-select').value; await setDoc(doc(db, "users", cred.user.uid), { name: document.getElementById('reg-name').value, email: document.getElementById('reg-email').value, role: 'athlete', clientType: clientType, approved: false, photoURL: null, settings: { restTime: 60, weeklyGoal: 3 }, lastLifts: {}, records: {}, statsHistory: [], createdAt: new Date() }); } catch (err) { alert(err.message); } },
+    showToast: (msg, type = 'normal') => { const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = `toast ${type}`; const icon = type === 'gold' ? 'emoji_events' : 'info'; toast.innerHTML = `<i class="material-icons-round">${icon}</i><span>${msg}</span>`; container.appendChild(toast); setTimeout(() => toast.remove(), 4000); }
 };
 
 const admin = {
     refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
     renderUsers: async () => {
-        const list = document.getElementById('admin-users-list');
-        const select = document.getElementById('assign-client-select');
-        if(!list) return;
+        const list = document.getElementById('admin-users-list'); const select = document.getElementById('assign-client-select'); if(!list) return;
         list.innerHTML = 'Cargando...';
         try {
-            const routinesQ = query(collection(db, "routines"));
-            const routinesSnap = await getDocs(routinesQ);
-            const routineCounts = {};
-            routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
-
-            const q = query(collection(db, "users"));
-            const snapshot = await getDocs(q);
-            list.innerHTML = ''; state.allClients = [];
-            select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
+            const routinesQ = query(collection(db, "routines")); const routinesSnap = await getDocs(routinesQ);
+            const routineCounts = {}; routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
+            const q = query(collection(db, "users")); const snapshot = await getDocs(q);
+            list.innerHTML = ''; state.allClients = []; select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
             snapshot.forEach(docSnap => {
                 const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
-                const avatar = u.photoURL || 'assets/placeholder-body.png';
-                const rCount = routineCounts[docSnap.id] || 0;
-                list.innerHTML += `
-                    <div class="user-row">
-                        <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
-                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div>
-                        <div class="user-actions">
-                            <button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', ${!u.approved})">${u.approved ? 'OK' : 'APROBAR'}</button>
-                            <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
-                        </div>
-                    </div>`;
+                const avatar = u.photoURL || 'assets/placeholder-body.png'; const rCount = routineCounts[docSnap.id] || 0;
+                list.innerHTML += `<div class="user-row"><img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')"><div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
                 select.innerHTML += `<option value="${docSnap.id}">${u.name}</option>`;
             });
         } catch (e) { list.innerHTML = 'Error cargando usuarios'; }
     },
-    
-    deleteUser: async (uid, name) => {
-        if(!confirm(`¿Eliminar a ${name}?`)) return;
-        if(!confirm("⚠️ Acción irreversible. ¿Continuar?")) return;
-        try { await deleteDoc(doc(db, "users", uid)); alert("Eliminado"); admin.renderUsers(); } catch(e) { alert("Error"); }
-    },
+    deleteUser: async (uid, name) => { if(!confirm(`¿Eliminar a ${name}?`)) return; if(!confirm("⚠️ Acción irreversible. ¿Continuar?")) return; try { await deleteDoc(doc(db, "users", uid)); alert("Eliminado"); admin.renderUsers(); } catch(e) { alert("Error"); } },
     toggleApproval: async (uid, status) => { await updateDoc(doc(db, "users", uid), { approved: status }); admin.renderUsers(); },
     
     viewClient: async (userId) => {
+        state.currentClientId = userId; // Guardar ID para clonar luego
         let user = state.allClients.find(c => c.id === userId);
         if(!user) { const docSnap = await getDoc(doc(db, "users", userId)); user = { id: docSnap.id, ...docSnap.data() }; }
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
         const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
-        document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--';
-        document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--';
-        document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
+        document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--'; document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--'; document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
         
+        // Historial
         const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(10));
-            const snapshot = await getDocs(q);
-            historyContainer.innerHTML = ''; const muscleCounts = {};
+            const snapshot = await getDocs(q); historyContainer.innerHTML = ''; const muscleCounts = {};
             if(snapshot.empty) historyContainer.innerHTML = '<p style="text-align:center">Sin entrenos.</p>';
             snapshot.forEach(doc => {
                 const w = doc.data(); const d = w.date.seconds ? new Date(w.date.seconds*1000) : new Date(w.date);
@@ -218,8 +121,35 @@ const admin = {
             });
             chartHelpers.renderRadar('clientRadarChart', muscleCounts);
         } catch(e) { console.log(e); historyContainer.innerHTML = 'Falta índice (ver consola)'; }
+        
         chartHelpers.renderLine('clientWeightChart', user.statsHistory||[], 'weight', '#39ff14');
+        chartHelpers.renderLine('clientFatChart', user.statsHistory||[], 'fat', '#ff3b30');
+        chartHelpers.renderLine('clientMuscleChart', user.statsHistory||[], 'muscle', '#00d4ff');
+        
+        // Renderizar Rutinas del Cliente en su ficha
+        admin.renderClientRoutines(userId);
         app.navTo('client-detail');
+    },
+
+    renderClientRoutines: async (userId) => {
+        const container = document.getElementById('client-routines-list'); container.innerHTML = 'Cargando rutinas...';
+        try {
+            const q = query(collection(db, "routines"), where("assignedTo", "==", userId));
+            const snapshot = await getDocs(q); container.innerHTML = '';
+            if(snapshot.empty) container.innerHTML = '<p style="font-size:12px; color:#666">Sin rutinas asignadas.</p>';
+            snapshot.forEach(doc => { const r = doc.data(); container.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between; align-items:center"><span style="font-size:13px">${r.name}</span><button class="icon-btn" onclick="admin.deleteRoutine('${doc.id}')" style="color:#ff3b30; font-size:16px"><i class="material-icons-round">delete</i></button></div>`; });
+            
+            // Llenar select clonar
+            const select = document.getElementById('client-clone-select'); select.innerHTML = '<option value="" disabled selected>Seleccionar base...</option>';
+            const allRoutines = await getDocs(query(collection(db, "routines")));
+            allRoutines.forEach(doc => { if(doc.data().assignedTo !== userId) select.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`; });
+        } catch(e) { console.log(e); }
+    },
+
+    cloneRoutineFromClientView: async () => {
+        const routineId = document.getElementById('client-clone-select').value;
+        if(!routineId) return;
+        admin.cloneRoutine(routineId, state.currentClientId);
     },
 
     renderExistingRoutines: async () => {
@@ -230,17 +160,10 @@ const admin = {
             if(snapshot.empty) { container.innerHTML = '<p>No hay rutinas.</p>'; return; }
             snapshot.forEach(docSnap => {
                 const r = docSnap.data();
-                let options = `<option value="" disabled>Reasignar...</option>`;
                 let cloneOptions = `<option value="" disabled selected>Clonar a...</option>`;
-                state.allClients.forEach(c => { options += `<option value="${c.id}" ${r.assignedTo===c.id?'selected':''}>${c.name}</option>`; cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`; });
+                state.allClients.forEach(c => { cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`; });
                 const assignedName = state.allClients.find(c => c.id === r.assignedTo)?.name || 'Sin asignar';
-                container.innerHTML += `
-                    <div class="exercise-card" style="border-left: 4px solid #00d4ff">
-                        <div style="display:flex; justify-content:space-between; align-items:center"><h4 style="margin:0">${r.name}</h4><button class="icon-btn" onclick="admin.deleteRoutine('${docSnap.id}')" style="color:#ff3b30"><i class="material-icons-round" style="font-size:20px">delete</i></button></div>
-                        <div style="margin-top:5px; font-size:12px; color:#aaa">Asignado a: <strong style="color:white">${assignedName}</strong></div>
-                        <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.updateRoutineAssignment('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%">${options}</select></div>
-                        <div style="margin-top:5px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.cloneRoutine('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:#00d4ff">${cloneOptions}</select></div>
-                    </div>`;
+                container.innerHTML += `<div class="exercise-card" style="border-left: 4px solid #00d4ff"><div style="display:flex; justify-content:space-between; align-items:center"><h4 style="margin:0">${r.name}</h4><button class="icon-btn" onclick="admin.deleteRoutine('${docSnap.id}')" style="color:#ff3b30"><i class="material-icons-round" style="font-size:20px">delete</i></button></div><div style="margin-top:5px; font-size:12px; color:#aaa">Asignado a: <strong style="color:white">${assignedName}</strong></div><div style="margin-top:10px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.cloneRoutine('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:#00d4ff">${cloneOptions}</select></div></div>`;
             });
         } catch(e) { container.innerHTML = 'Error'; }
     },
@@ -248,13 +171,14 @@ const admin = {
     cloneRoutine: async (routineId, targetUserId) => {
         try {
             const docSnap = await getDoc(doc(db, "routines", routineId)); const data = docSnap.data();
-            await addDoc(collection(db, "routines"), { ...data, assignedTo: targetUserId, createdAt: new Date(), name: data.name + " (Copia)" });
-            alert("Clonada"); admin.renderExistingRoutines(); admin.renderUsers();
+            await addDoc(collection(db, "routines"), { ...data, assignedTo: targetUserId, createdAt: new Date(), name: data.name });
+            alert("Rutina clonada exitosamente");
+            if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(targetUserId);
+            else admin.renderExistingRoutines();
         } catch(e) { alert("Error al clonar"); }
     },
 
-    updateRoutineAssignment: async (routineId, newAssignee) => { try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Reasignado"); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } },
-    deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina?")) return; try { await deleteDoc(doc(db, "routines", routineId)); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } },
+    deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina permanentemente?")) return; try { await deleteDoc(doc(db, "routines", routineId)); if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } catch(e) { alert("Error"); } },
     renderExerciseSelect: () => { const select = document.getElementById('admin-exercise-select'); if(!select) return; select.innerHTML = '<option value="">Selecciona ejercicio...</option>'; EXERCISES.forEach((ex, idx) => { select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); state.newRoutine = []; admin.renderPreview(); },
     filterExercises: (term) => { const select = document.getElementById('admin-exercise-select'); const lowerTerm = term.toLowerCase(); select.innerHTML = ''; EXERCISES.forEach((ex, idx) => { if(ex.n.toLowerCase().includes(lowerTerm)) select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); },
     addExerciseToRoutine: () => { const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; const exData = EXERCISES[idx]; state.newRoutine.push({ ...exData, defaultSets: [ {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16} ] }); admin.renderPreview(); },
@@ -318,16 +242,11 @@ const workoutManager = {
             await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpeLabel, notes: notes });
             localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); 
             
-            // Celebración Semanal
             const now = new Date(); const start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay()===0?-6:1)));
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), where("date", ">=", start));
             const snap = await getDocs(q); const count = snap.size; const goal = state.profile.settings?.weeklyGoal || 3;
-            if(count >= goal) {
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-                app.showToast("¡OBJETIVO SEMANAL CUMPLIDO!", 'gold');
-            } else {
-                alert("¡Completado!");
-            }
+            if(count >= goal) { confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }); app.showToast("¡OBJETIVO SEMANAL CUMPLIDO!", 'gold'); } 
+            else { alert("¡Completado!"); }
             app.navTo('dashboard'); 
         } catch(e) { alert("Error al guardar"); }
     },
@@ -359,24 +278,19 @@ const workoutManager = {
     toggleSet: (exIdx, sIdx) => {
         const set = state.activeWorkout.exercises[exIdx].sets[sIdx]; set.done = !set.done;
         
-        // CALCULO DE RÉCORD 1RM
         if(set.done && set.kg && set.reps) {
             const kg = parseFloat(set.kg); const reps = parseInt(set.reps);
-            const oneRM = Math.round(kg * (1 + reps/30));
-            const exName = state.activeWorkout.exercises[exIdx].n;
+            const oneRM = Math.round(kg * (1 + reps/30)); const exName = state.activeWorkout.exercises[exIdx].n;
             
-            // Check record
             if(!state.profile.records) state.profile.records = {};
             const oldRecord = state.profile.records[exName] || 0;
             
             if(oneRM > oldRecord) {
-                // Nuevo récord!
                 state.profile.records[exName] = oneRM;
                 updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
                 app.showToast(`¡NUEVO RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
                 confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
             }
-
             if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
             const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime);
         }
