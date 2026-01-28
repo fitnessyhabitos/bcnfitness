@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
+// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,6 +18,8 @@ const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null };
+
+// HELPER NORMALIZAR
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const app = {
@@ -43,6 +46,7 @@ const app = {
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
         
+        // EVENTOS BUSCADOR
         const searchInput = document.getElementById('exercise-search');
         if(searchInput) {
             searchInput.addEventListener('input', (e) => admin.searchExercises(e.target.value));
@@ -89,42 +93,58 @@ const app = {
 
 const admin = {
     refreshAll: () => { admin.loadUsers(); admin.renderExistingRoutines(); },
+    
+    // --- BUSCADOR VISUAL ---
     searchExercises: (term) => {
         const container = document.getElementById('search-results-container');
-        if(!container) return; 
+        if(!container) return; // Seguridad si no existe en HTML
         container.innerHTML = '';
         container.classList.remove('hidden');
+        
         const normTerm = normalizeText(term);
+        // Filtrar y mostrar máximo 20 resultados para no colapsar
         const results = EXERCISES.filter(e => normalizeText(e.n).includes(normTerm)).slice(0, 20);
-        if(results.length === 0) { container.innerHTML = '<div style="padding:10px; color:#888">No hay resultados</div>'; return; }
+        
+        if(results.length === 0) {
+            container.innerHTML = '<div style="padding:10px; color:#888">No hay resultados</div>';
+            return;
+        }
+
         results.forEach((ex) => {
-            const realIdx = EXERCISES.indexOf(ex);
-            const div = document.createElement('div'); div.className = 'search-result-item';
-            // IMAGEN PEQUEÑA EN BUSCADOR
-            div.innerHTML = `<img src="assets/muscles/${ex.img}" width="40" height="40"><span>${ex.n}</span>`;
-            div.onclick = () => { admin.addExerciseToRoutine(realIdx); container.classList.add('hidden'); document.getElementById('exercise-search').value = ''; };
+            const realIdx = EXERCISES.indexOf(ex); // Indice real en array principal
+            const div = document.createElement('div');
+            div.className = 'search-result-item';
+            div.innerHTML = `<img src="assets/muscles/${ex.img}" alt="${ex.m}"><span>${ex.n}</span>`;
+            div.onclick = () => {
+                admin.addExerciseToRoutine(realIdx);
+                container.classList.add('hidden');
+                document.getElementById('exercise-search').value = '';
+            };
             container.appendChild(div);
         });
     },
+
     addExerciseToRoutine: (idx) => {
+        // 5 SERIES DEFAULT (20-16-16-16-16)
         state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
         admin.renderPreview(); 
     },
+
     renderPreview: () => { 
         const div = document.getElementById('admin-routine-preview');
         div.innerHTML = state.newRoutine.map((e, exIdx) => `
-            <div class="routine-edit-row">
-                <div class="routine-edit-header">
+            <div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px">
+                <div style="display:flex; justify-content:space-between; align-items:center">
                     <div style="display:flex; align-items:center; gap:10px">
-                        <img src="assets/muscles/${e.img}" class="routine-mini-img">
+                        <img src="assets/muscles/${e.img}" width="30" height="30" style="border-radius:4px; background:#000">
                         <strong>${e.n}</strong>
                     </div>
                     <span style="color:#ff3b30; cursor:pointer" onclick="window.admin.removeEx(${exIdx})">x</span>
                 </div>
                 <div style="font-size:12px; margin-top:5px; display:flex; align-items:center; gap:10px">
                     <span>${e.defaultSets.length} Series</span>
-                    <button class="action-btn" onclick="window.admin.modSets(${exIdx}, 1)">+</button>
-                    <button class="action-btn" onclick="window.admin.modSets(${exIdx}, -1)">-</button>
+                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, 1)">+</button>
+                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, -1)">-</button>
                 </div>
             </div>`).join(''); 
     },
@@ -134,20 +154,27 @@ const admin = {
         else if(state.newRoutine[i].defaultSets.length > 1) state.newRoutine[i].defaultSets.pop();
         admin.renderPreview();
     },
+
+    // --- EDICIÓN Y GUARDADO ---
     editRoutine: async (id) => {
         const docSnap = await getDoc(doc(db, "routines", id));
         const r = docSnap.data();
-        state.editingRoutineId = id; state.newRoutine = r.exercises;
+        state.editingRoutineId = id;
+        state.newRoutine = r.exercises;
+        
         document.getElementById('new-routine-name').value = r.name;
         document.getElementById('assign-client-select').value = r.assignedTo;
         document.getElementById('routine-editor-title').innerText = "Editando: " + r.name;
         document.getElementById('save-routine-btn').innerText = "ACTUALIZAR";
         document.getElementById('cancel-edit-btn').classList.remove('hidden');
+        
         admin.renderPreview();
         document.getElementById('routine-editor-card').scrollIntoView({behavior: 'smooth'});
     },
+
     cancelEdit: () => {
-        state.editingRoutineId = null; state.newRoutine = [];
+        state.editingRoutineId = null;
+        state.newRoutine = [];
         document.getElementById('new-routine-name').value = '';
         document.getElementById('assign-client-select').value = '';
         document.getElementById('routine-editor-title').innerText = "Crear Rutina Base";
@@ -155,13 +182,23 @@ const admin = {
         document.getElementById('cancel-edit-btn').classList.add('hidden');
         admin.renderPreview();
     },
+
     saveRoutine: async () => {
-        const name = document.getElementById('new-routine-name').value; const client = document.getElementById('assign-client-select').value;
+        const name = document.getElementById('new-routine-name').value; 
+        const client = document.getElementById('assign-client-select').value;
         if(!name || !client) return alert("Faltan datos");
-        if(state.editingRoutineId) { await updateDoc(doc(db, "routines", state.editingRoutineId), { name, assignedTo: client, exercises: state.newRoutine }); alert("Actualizada"); } 
-        else { await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() }); alert("Guardada"); }
-        admin.cancelEdit(); admin.renderExistingRoutines();
+        
+        if(state.editingRoutineId) {
+            await updateDoc(doc(db, "routines", state.editingRoutineId), { name, assignedTo: client, exercises: state.newRoutine });
+            alert("Actualizada");
+        } else {
+            await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() });
+            alert("Guardada");
+        }
+        admin.cancelEdit(); 
+        admin.renderExistingRoutines();
     },
+
     loadUsers: async () => {
         const div = document.getElementById('admin-users-list'); div.innerHTML = 'Cargando...';
         try {
@@ -245,7 +282,6 @@ const admin = {
                     </div>`;
             }
         });
-        if(div.innerHTML === '') div.innerHTML = '<p>No hay rutinas creadas.</p>';
     },
     showRoutineDetails: async (rid) => {
         const snap = await getDoc(doc(db, "routines", rid)); const r = snap.data();
@@ -323,8 +359,17 @@ const workoutManager = {
                 if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
-                const dis = s.done ? 'disabled style="background:#222; color:#555; border:1px solid #333"' : '';
-                html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
+                const bg = s.done ? 'set-completed' : ''; // Clase para el contenedor
+                const dis = s.done ? 'disabled' : ''; // Atributo para inputs
+                
+                html += `
+                <div class="set-row ${bg}">
+                    <span style="color:#555">#${i+1}</span>
+                    <span style="font-size:10px; color:#888">${prev}</span>
+                    <input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)">
+                    <input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)">
+                    <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div>
+                </div>`;
             });
             div.innerHTML += `<div class="exercise-card"><div style="display:flex; gap:10px; align-items:center; margin-bottom:10px"><img src="assets/muscles/${ex.img}" width="40" height="40" style="background:#000; border-radius:4px"><h3>${ex.n}</h3></div>${html}</div>`;
         });
@@ -418,7 +463,6 @@ const profile = {
         if(w) { 
             const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
-            // FORCE UPDATE LOCAL
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
             alert("Guardado"); profile.renderCharts(); 
@@ -461,7 +505,6 @@ const profile = {
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64 = e.target.result;
-            // FORCE DOM UPDATE
             document.getElementById('profile-img').src = base64;
             state.profile.photoURL = base64;
             await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
@@ -472,7 +515,6 @@ const profile = {
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
         history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
-        
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
