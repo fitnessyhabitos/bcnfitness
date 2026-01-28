@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// CONFIGURACIÓN (Tus claves)
+// CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -19,14 +19,12 @@ const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
 
+// --- HELPER NORMALIZAR TEXTO (Buscador insensible) ---
+const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
 const app = {
     init: () => {
-        // Seguro para el logo por si Firebase tarda
-        setTimeout(() => {
-            const spl = document.getElementById('splash-screen');
-            if(spl) spl.style.display = 'none';
-        }, 4000);
-
+        setTimeout(() => { const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none'; }, 4000);
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
@@ -41,8 +39,7 @@ const app = {
                 } catch(e) { console.error(e); }
             } else {
                 app.navTo('login');
-                const spl = document.getElementById('splash-screen');
-                if(spl) spl.style.display = 'none';
+                const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none';
             }
         });
         document.getElementById('logout-btn').onclick = () => signOut(auth);
@@ -66,15 +63,14 @@ const app = {
         if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.loadUsers(); } else { adminBtn.classList.add('hidden'); }
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
-        const spl = document.getElementById('splash-screen');
-        if(spl) spl.style.display = 'none';
+        const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none';
     },
     navTo: (viewId) => {
         document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
         document.getElementById('view-'+viewId).classList.remove('hidden'); document.getElementById('view-'+viewId).classList.add('active');
         const isAuth = ['login', 'register'].includes(viewId);
         document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
+        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || view === 'workout');
         if(viewId === 'dashboard') dashboard.render();
         if(viewId === 'profile') profile.render();
         if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
@@ -107,11 +103,11 @@ const admin = {
     toggleApproval: async (uid, st) => { await updateDoc(doc(db, "users", uid), { approved: st }); admin.loadUsers(); },
     viewClient: async (uid) => {
         state.currentClientId = uid;
-        const user = state.allClients.find(c => c.id === uid);
-        if(!user) return;
+        const user = state.allClients.find(c => c.id === uid); if(!user) return;
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
-        document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
+        document.getElementById('client-detail-img').src = user.photoURL || 'https://placehold.co/100x100/333/39ff14?text=IMG';
+        
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
@@ -137,8 +133,7 @@ const admin = {
         
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
-            // Ordenar historial para gráficas de linea
-            const lineData = [...(user.statsHistory || [])].sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
+            const lineData = [...(user.statsHistory || [])].sort((a,b) => (a.date.seconds||new Date(a.date)) - (b.date.seconds||new Date(b.date)));
             window.chartHelpers.renderLine('clientWeightChart', lineData, 'weight', '#39ff14');
             window.chartHelpers.renderLine('clientFatChart', lineData, 'fat', '#ff3b30');
             window.chartHelpers.renderLine('clientMuscleChart', lineData, 'muscle', '#00d4ff');
@@ -186,9 +181,35 @@ const admin = {
     },
     deleteRoutine: async (id) => { if(confirm("¿Borrar?")) { await deleteDoc(doc(db, "routines", id)); if(state.currentClientId) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } },
     renderExerciseSelect: () => { const s = document.getElementById('admin-exercise-select'); s.innerHTML = ''; EXERCISES.forEach((e,i) => s.innerHTML += `<option value="${i}">${e.n}</option>`); state.newRoutine = []; },
-    filterExercises: (t) => { const s = document.getElementById('admin-exercise-select'); s.innerHTML = ''; EXERCISES.forEach((e,i) => { if(e.n.toLowerCase().includes(t.toLowerCase())) s.innerHTML += `<option value="${i}">${e.n}</option>`; }); },
-    addExerciseToRoutine: () => { const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:12},{reps:12},{reps:12}]}); admin.renderPreview(); },
-    renderPreview: () => { document.getElementById('admin-routine-preview').innerHTML = state.newRoutine.map(e => `<div>${e.n} (3 series)</div>`).join(''); },
+    filterExercises: (t) => { const s = document.getElementById('admin-exercise-select'); s.innerHTML = ''; EXERCISES.forEach((e,i) => { if(normalizeText(e.n).includes(normalizeText(t))) s.innerHTML += `<option value="${i}">${e.n}</option>`; }); },
+    addExerciseToRoutine: () => { 
+        const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; 
+        // 5 SERIES (20-16-16-16-16)
+        state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
+        admin.renderPreview(); 
+    },
+    // RENDER PREVIEW CON BOTONES + Y -
+    renderPreview: () => { 
+        const div = document.getElementById('admin-routine-preview');
+        div.innerHTML = state.newRoutine.map((e, exIdx) => `
+            <div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px">
+                <div style="display:flex; justify-content:space-between">
+                    <strong>${e.n}</strong>
+                    <span style="color:#ff3b30; cursor:pointer" onclick="window.admin.removeEx(${exIdx})">x</span>
+                </div>
+                <div style="font-size:12px; margin-top:5px; display:flex; align-items:center; gap:10px">
+                    <span>${e.defaultSets.length} Series</span>
+                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, 1)">+</button>
+                    <button style="padding:2px 8px; background:#444; border:none; color:white; border-radius:4px" onclick="window.admin.modSets(${exIdx}, -1)">-</button>
+                </div>
+            </div>`).join(''); 
+    },
+    removeEx: (i) => { state.newRoutine.splice(i, 1); admin.renderPreview(); },
+    modSets: (i, delta) => {
+        if(delta > 0) state.newRoutine[i].defaultSets.push({reps:12});
+        else if(state.newRoutine[i].defaultSets.length > 1) state.newRoutine[i].defaultSets.pop();
+        admin.renderPreview();
+    },
     saveRoutine: async () => {
         const name = document.getElementById('new-routine-name').value; const client = document.getElementById('assign-client-select').value;
         if(!name || !client) return alert("Faltan datos");
@@ -213,7 +234,6 @@ const dashboard = {
         try {
             const now = new Date(); const day = now.getDay() || 7;
             const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
-            
             const q = query(collection(db, "workouts"), where("userId", "==", uid));
             const snap = await getDocs(q);
             let count = 0;
@@ -253,7 +273,9 @@ const workoutManager = {
                 if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
-                html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
+                // INPUTS DESHABILITADOS SI DONE
+                const disabled = s.done ? 'disabled' : '';
+                html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" ${disabled} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" ${disabled} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
             });
             div.innerHTML += `<div class="exercise-card"><h3>${ex.n}</h3>${html}</div>`;
         });
@@ -270,9 +292,7 @@ const workoutManager = {
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
-            // 1RM Logic
             if(s.kg && s.reps) {
-                const kg = parseFloat(s.kg); const reps = parseInt(s.reps);
                 const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
                 const name = state.activeWorkout.exercises[ei].n;
                 if(!state.profile.records) state.profile.records = {};
@@ -318,16 +338,17 @@ const workoutManager = {
 const profile = {
     render: () => {
         document.getElementById('profile-name').innerText = state.profile.name;
-        document.getElementById('profile-img').src = state.profile.photoURL || 'assets/placeholder-body.png';
+        // PHOTO IMMEDIATE UPDATE FIX
+        const img = document.getElementById('profile-img');
+        if(state.profile.photoURL) img.src = state.profile.photoURL;
+        
         document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         profile.renderCharts(); profile.loadRadar();
-        // Reset tabs
         profile.switchTab('stats');
     },
     
-    // FIX PESTAÑAS IPHONE
     switchTab: (tab) => {
         ['stats', 'history', 'config'].forEach(t => {
             document.getElementById(`tab-${t}`).classList.add('hidden');
@@ -348,11 +369,11 @@ const profile = {
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
         if(w) { 
-            const newStat = {date: new Date(), weight:w, fat:f, muscle:m};
-            await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newStat) });
-            // FORCE UPDATE LOCAL STATE
+            const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
+            await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
+            // UPDATE LOCAL STATE FOR CHART
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
-            state.profile.statsHistory.push(newStat);
+            state.profile.statsHistory.push(newEntry);
             alert("Guardado");
             profile.renderCharts(); 
         }
@@ -390,18 +411,30 @@ const profile = {
     testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } },
     
     uploadPhoto: (input) => {
-        const file = input.files[0];
-        if(!file) return;
+        const file = input.files[0]; if(!file) return;
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64 = e.target.result;
-            // Update DB
-            await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
-            // Update Local State & DOM immediately
-            state.profile.photoURL = base64;
+            // UPDATE UI IMMEDIATELY
             document.getElementById('profile-img').src = base64;
+            // UPDATE STATE & DB
+            state.profile.photoURL = base64;
+            await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
         };
         reader.readAsDataURL(file);
+    },
+
+    // RENDERIZAR GRAFICAS PERFIL (CON DATOS LOCALES)
+    renderCharts: () => {
+        const history = state.profile.statsHistory || [];
+        // Sort safely handling both Firestore Timestamp and Date object
+        history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
+        
+        if(window.chartHelpers) {
+            window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
+            window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
+            window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
+        }
     }
 };
 
@@ -412,7 +445,6 @@ const chartHelpers = {
         new Chart(ctx, { 
             type: 'line', 
             data: { 
-                // Handle both Firestore Timestamp (seconds) and native Date objects
                 labels: data.map(d => {
                     const date = d.date.seconds ? new Date(d.date.seconds*1000) : new Date(d.date);
                     return date.toLocaleDateString();
