@@ -43,9 +43,6 @@ h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; marg
 .btn-text { background: none; border: none; color: var(--text-gray); cursor: pointer; margin-top: 10px; width: 100%; }
 .icon-btn { background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .icon-btn i { font-size: 28px; }
-/* FAB */
-.fab-play { position: fixed; bottom: 100px; right: 20px; width: 60px; height: 60px; border-radius: 50%; background: var(--neon-green); color: black; border: none; box-shadow: 0 4px 15px rgba(57,255,20,0.4); display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 90; }
-.fab-play i { font-size: 32px; }
 
 input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; font-family: 'Roboto', sans-serif; }
 input:focus, select:focus, textarea:focus { border-color: var(--neon-green); outline: none; }
