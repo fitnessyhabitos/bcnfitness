@@ -3,15 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#000000">
-    <title>BCN Fitness</title>
+    <meta name="apple-mobile-web-app-title" content="BCN Fitness">
+    <link rel="apple-touch-icon" href="logo.png">
+    
+    <link rel="manifest" href="manifest.json">
     <link rel="icon" href="logo.png" type="image/png">
+    <meta name="theme-color" content="#000000">
+
+    <title>BCN Fitness</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,7 +34,9 @@
             <button id="admin-btn" class="icon-btn hidden" onclick="app.navTo('admin')">
                 <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
             </button>
-            <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
+            <button id="logout-btn" class="icon-btn">
+                <i class="material-icons-round">logout</i>
+            </button>
         </div>
     </header>
 
@@ -56,6 +65,7 @@
                         <div class="brand-icon"><i class="material-icons-round">phone_iphone</i></div>
                         <div class="install-text"><strong>iOS:</strong> Pulsa <i class="material-icons-round small-icon">ios_share</i> y <span class="highlight">"Añadir a inicio"</span>.</div>
                     </div>
+                    <div class="install-divider"></div>
                     <div class="install-row">
                         <div class="brand-icon"><i class="material-icons-round">android</i></div>
                         <div class="install-text"><strong>Android:</strong> Pulsa <i class="material-icons-round small-icon">more_vert</i> y <span class="highlight">"Instalar aplicación"</span>.</div>
@@ -92,7 +102,7 @@
 
         <section id="view-dashboard" class="view hidden">
             <div id="pending-approval" class="hidden warning-box">
-                ⚠️ Tu cuenta espera aprobación del Coach.
+                ⚠️ Cuenta pendiente de aprobación.
             </div>
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
@@ -105,28 +115,34 @@
             </div>
             
             <div class="section-card">
-                <h4>Clientes Registrados</h4>
-                <div id="admin-users-list" class="users-list-container"></div>
+                <h4>Gestión de Usuarios</h4>
+                <div id="admin-users-list" class="users-list-container">
+                    </div>
             </div>
 
             <div class="section-card">
                 <h4>Crear / Asignar Rutina</h4>
-                <input type="text" id="new-routine-name" placeholder="Nombre Rutina (ej: Pierna Fuerza)">
+                <input type="text" id="new-routine-name" placeholder="Nombre Rutina (ej: Pierna Hipertrofia)">
                 
                 <label style="font-size:12px; color:#888">Asignar a:</label>
                 <select id="assign-client-select">
                     <option value="all">Todos los Clientes</option>
-                    </select>
+                </select>
 
                 <div class="exercise-selector" style="margin-top:10px">
                     <select id="admin-exercise-select" style="margin-bottom:10px"></select>
                     <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR EJERCICIO</button>
                 </div>
 
-                <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px">
-                    </div>
+                <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
 
                 <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR Y ASIGNAR</button>
+            </div>
+
+            <div class="section-card">
+                <h4>Rutinas Activas</h4>
+                <div id="admin-routines-management" class="users-list-container">
+                    </div>
             </div>
         </section>
 
@@ -159,6 +175,7 @@
             <div class="profile-tabs">
                 <button class="tab-btn active" onclick="profile.switchTab('stats')">Medidas</button>
                 <button class="tab-btn" onclick="profile.switchTab('history')">Historial</button>
+                <button class="tab-btn" onclick="profile.switchTab('config')">Ajustes</button>
             </div>
 
             <div id="tab-stats" class="tab-content">
@@ -175,12 +192,36 @@
                     <h3>Evolución Peso</h3>
                     <div class="chart-container"><canvas id="weightChart"></canvas></div>
                 </div>
+                <div class="section-card">
+                    <h3>Evolución Composición</h3>
+                    <div class="chart-container"><canvas id="fatChart"></canvas></div>
+                </div>
             </div>
 
             <div id="tab-history" class="tab-content hidden">
-                <div id="history-list" class="history-container">
-                    </div>
+                <div id="history-list" class="history-container">Cargando...</div>
             </div>
+
+            <div id="tab-config" class="tab-content hidden">
+                <div class="section-card">
+                    <h3>Preferencias</h3>
+                    <label>Tiempo Descanso (seg):</label>
+                    <input type="number" id="conf-rest-time" placeholder="Por defecto 60">
+                    <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR CAMBIOS</button>
+                    
+                    <hr style="border:0; border-top:1px solid #333; margin:20px 0">
+                    
+                    <button class="btn-text" onclick="profile.requestNotify()">🔔 Probar Notificaciones</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-client-history" class="view hidden">
+            <div style="display:flex; align-items:center; margin-bottom:20px">
+                <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
+                <h3>Historial de Cliente</h3>
+            </div>
+            <div id="admin-client-history-list" class="history-container"></div>
         </section>
 
     </main>
@@ -213,7 +254,7 @@
                 </button>
             </div>
 
-            <textarea id="final-notes" placeholder="Notas del entreno (opcional)..." style="margin-top:20px"></textarea>
+            <textarea id="final-notes" placeholder="Notas del entreno..."></textarea>
             <button class="btn-text" onclick="document.getElementById('finish-modal').classList.add('hidden')">Volver</button>
         </div>
     </div>
