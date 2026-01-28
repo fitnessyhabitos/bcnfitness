@@ -3,36 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BCN Fitness</title>
-    <link rel="apple-touch-icon" href="logo.png">
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="logo.png" type="image/png">
-    <meta name="theme-color" content="#000000">
     
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* --- CSS INTEGRADO PARA EVITAR ERRORES DE CARGA --- */
+        :root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; --text-gray: #a0a0a0; --danger: #ff3b30; --gold: #FFD700; --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { height: 100%; width: 100%; margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: var(--text-white); overflow: hidden; position: fixed; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
+        h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; margin-top: 0; }
+        
+        #main-container { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(60px + var(--safe-top) + 20px); padding-bottom: calc(70px + var(--safe-bottom) + 20px); padding-left: 16px; padding-right: 16px; }
+        #main-container::-webkit-scrollbar { display: none; }
+
+        /* HEADER & NAV */
+        #app-header { height: calc(60px + var(--safe-top)); padding-top: var(--safe-top); position: fixed; top: 0; width: 100%; background: rgba(18,18,18,0.95); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid #333; }
+        #bottom-nav { height: calc(70px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); position: fixed; bottom: 0; width: 100%; background: rgba(18,18,18,0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #333; z-index: 100; }
+        .nav-item { color: var(--text-gray); display: flex; flex-direction: column; align-items: center; font-size: 12px; cursor: pointer; }
+        .nav-item.active { color: var(--neon-green); }
+
+        /* UI ELEMENTS */
+        .btn-primary { background: var(--neon-green); color: black; font-weight: 900; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-family: 'Russo One'; margin-top: 10px; }
+        .btn-secondary { background: #333; color: white; padding: 12px; border-radius: 6px; width: 100%; font-weight: bold; border: none; margin-top: 5px; }
+        .btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 8px 16px; border-radius: 4px; font-weight: bold; }
+        .btn-finish { background: var(--neon-green); color: black; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-family: 'Russo One'; }
+        .icon-btn { background: none; border: none; color: white; cursor: pointer; } .icon-btn i { font-size: 28px; }
+        input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; }
+        .section-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); }
+        .warning-box { background: rgba(255, 165, 0, 0.2); color: orange; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid orange; text-align: center; }
+
+        /* WORKOUT */
+        .workout-sticky-header { position: sticky; top: 0; background: rgba(0,0,0,0.95); z-index: 50; padding: 10px 0; margin-bottom: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        .set-row { display: grid; grid-template-columns: 0.4fr 1fr 0.8fr 0.8fr 0.4fr; gap: 8px; align-items: center; margin-top: 8px; padding: 8px; background: #080808; border-radius: 6px; }
+        .set-row input { text-align: center; font-weight: bold; font-size: 18px; }
+        .check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .check-box.checked { background: var(--neon-green); }
+        
+        /* MODALES */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        .modal-content { text-align: center; width: 85%; }
+        #rest-countdown { font-size: 80px; font-family: 'Russo One'; color: var(--neon-green); }
+        
+        /* UTILS */
+        .hidden { display: none !important; }
+        .active { display: block; animation: fadeUp 0.3s forwards; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .row { display: flex; justify-content: space-between; gap: 10px; }
+        
+        /* OTROS ESTILOS NECESARIOS */
+        .chart-container { position: relative; height: 200px; width: 100%; }
+        .progress-bar-bg { background: #222; height: 10px; border-radius: 5px; width: 100%; overflow: hidden; border: 1px solid #333; }
+        .progress-bar-fill { background: var(--neon-green); height: 100%; transition: width 0.5s; }
+        .user-row { display: flex; align-items: center; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; }
+        .history-item { background: #1c1c1e; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #666; }
+        
+        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .pulse-logo { width: 150px; animation: pulse 2s infinite; border-radius: 50%; }
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(57, 255, 20, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); } }
+    </style>
 </head>
 <body>
 
     <div id="splash-screen">
-        <img src="logo.png" alt="BCN Fitness" class="pulse-logo">
-        <h1 class="logo-text">BCN FITNESS</h1>
+        <img src="logo.png" alt="BCN" class="pulse-logo" onerror="this.src='https://via.placeholder.com/150/000000/39ff14?text=BCN'">
+        <h1 style="color:white; margin-top:20px; font-family:'Russo One'">BCN FITNESS</h1>
     </div>
 
     <header id="app-header" class="hidden">
         <div style="display:flex; align-items:center; gap:10px">
-            <img src="logo.png" alt="Logo" style="height:30px; border-radius:50%">
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="app.navTo('admin')">
+            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')">
                 <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
             </button>
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
@@ -42,45 +90,35 @@
     <main id="main-container">
         
         <section id="view-login" class="view active">
-            <div class="login-wrapper">
-                <img src="logo.png" alt="Logo" width="120" class="login-logo" style="border-radius:50%">
-                <h1>BCN FITNESS</h1>
+            <div style="text-align:center; padding-top:20px">
+                <h1 style="color:var(--neon-green)">BCN FITNESS</h1>
                 <form id="login-form">
-                    <div class="input-group"><i class="material-icons-round">email</i><input type="email" id="login-email" placeholder="Email" required></div>
-                    <div class="input-group"><i class="material-icons-round">lock</i><input type="password" id="login-password" placeholder="Contraseña" required></div>
+                    <input type="email" id="login-email" placeholder="Email" required style="margin-bottom:10px">
+                    <input type="password" id="login-password" placeholder="Contraseña" required>
                     <button type="submit" class="btn-primary">ENTRAR</button>
                 </form>
-                <p class="text-link" onclick="app.navTo('register')">Crear cuenta</p>
-                <div class="install-box">
-                    <div class="install-header"><i class="material-icons-round" style="color:var(--neon-green)">download</i><span>INSTALAR APP</span></div>
-                    <div class="install-content">
-                        <div class="install-row"><div class="brand-badge"><i class="material-icons-round">phone_iphone</i> iOS</div><div class="install-desc">Pulsa <i class="material-icons-round tiny">ios_share</i> y <strong>"Añadir a inicio"</strong></div></div>
-                        <div class="install-divider"></div>
-                        <div class="install-row"><div class="brand-badge"><i class="material-icons-round">android</i> Android</div><div class="install-desc">Pulsa <i class="material-icons-round tiny">more_vert</i> y <strong>"Instalar App"</strong></div></div>
-                    </div>
-                </div>
+                <p onclick="window.app.navTo('register')" style="color:#888; margin-top:20px; cursor:pointer">Crear cuenta</p>
             </div>
         </section>
 
         <section id="view-register" class="view hidden">
-            <h2 class="section-title">NUEVO PERFIL</h2>
+            <h2>NUEVO PERFIL</h2>
             <form id="register-form">
-                <input type="text" id="reg-name" placeholder="Nombre Completo" required>
+                <input type="text" id="reg-name" placeholder="Nombre" required>
                 <input type="email" id="reg-email" placeholder="Email" required>
                 <input type="password" id="reg-pass" placeholder="Contraseña" required>
-                <label style="color:#888; font-size:12px; margin-left:5px">Rol</label>
-                <select id="reg-role-select" style="margin-bottom:15px"><option value="cliente">Cliente</option><option value="atleta">Atleta</option></select>
-                <div class="row"><input type="number" id="reg-age" placeholder="Edad" required style="width: 48%"><select id="reg-sex" style="width: 48%"><option value="male">Hombre</option><option value="female">Mujer</option></select></div>
-                <input type="text" id="reg-code" placeholder="CÓDIGO SECRETO" required class="input-code">
+                <select id="reg-role-select"><option value="cliente">Cliente</option><option value="atleta">Atleta</option></select>
+                <input type="number" id="reg-age" placeholder="Edad">
+                <input type="text" id="reg-code" placeholder="CÓDIGO SECRETO" required>
                 <button type="submit" class="btn-primary">REGISTRARSE</button>
-                <button type="button" class="btn-text" onclick="app.navTo('login')">Cancelar</button>
+                <button type="button" class="btn-secondary" onclick="window.app.navTo('login')">VOLVER</button>
             </form>
         </section>
 
         <section id="view-dashboard" class="view hidden">
-            <div id="pending-approval" class="hidden warning-box">⚠️ Tu cuenta espera aprobación.</div>
+            <div id="pending-approval" class="hidden warning-box">⚠️ Cuenta pendiente de aprobación.</div>
             
-            <div class="section-card" id="weekly-progress-card">
+            <div class="section-card">
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px">
                     <span>Semana Actual</span>
                     <strong id="weekly-count" style="color:var(--neon-green)">0/0</strong>
@@ -89,182 +127,481 @@
             </div>
 
             <h3>Tus Rutinas</h3>
-            <div id="routines-list" class="card-list"></div>
+            <div id="routines-list">Cargando...</div>
         </section>
 
         <section id="view-admin" class="view hidden">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                <h3 style="color:var(--neon-green)">PANEL COACH</h3>
-                <button class="btn-text" onclick="admin.refreshAll()" style="width:auto; margin:0">↻ Refrescar</button>
-            </div>
-            
+            <h3 style="color:var(--neon-green)">PANEL COACH</h3>
             <div class="section-card">
                 <h4>Clientes</h4>
-                <div id="admin-users-list" class="users-list-container"></div>
+                <div id="admin-users-list"></div>
             </div>
-
             <div class="section-card">
-                <h4>Crear Rutina Base</h4>
+                <h4>Crear Rutina</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
-                <label style="font-size:12px; color:#888">Asignar a:</label>
-                <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
-                <div class="exercise-selector" style="margin-top:15px">
-                    <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." style="margin-bottom:5px">
-                    <select id="admin-exercise-select" style="margin-bottom:10px"></select>
-                    <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR</button>
+                <div style="margin-top:10px">
+                    <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio...">
+                    <select id="admin-exercise-select" style="margin-top:5px; width:100%"></select>
+                    <button class="btn-secondary" onclick="window.admin.addExerciseToRoutine()">+ AÑADIR</button>
                 </div>
-                <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
-                <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR</button>
-            </div>
-
-            <div class="section-card">
-                <h4>Plantillas / Rutinas Creadas</h4>
-                <div id="admin-routines-management" class="users-list-container"></div>
+                <div id="admin-routine-preview" style="margin-top:10px; border-top:1px solid #333"></div>
+                <button class="btn-primary" onclick="window.admin.saveRoutine()">GUARDAR</button>
             </div>
         </section>
 
         <section id="view-client-detail" class="view hidden">
-            <div class="workout-sticky-header">
-                <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
-                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
-            </div>
-
             <div class="section-card" style="text-align:center">
-                <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
-                <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
-                <div class="row" style="margin-top:15px; text-align:center">
-                    <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><div style="font-size:10px">PESO</div></div>
-                    <div><strong id="cd-fat" style="color:#ff3b30">--</strong><div style="font-size:10px">GRASA</div></div>
-                    <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
+                <h2 id="client-detail-name">Cliente</h2>
+                <div class="row">
+                    <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><br><small>Peso</small></div>
+                    <div><strong id="cd-fat" style="color:orange">--</strong><br><small>Grasa</small></div>
+                    <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><br><small>Músculo</small></div>
                 </div>
             </div>
-            
-            <div class="section-card" style="border-left: 4px solid var(--neon-green)">
-                <h4>Rutinas Asignadas</h4>
-                <div id="client-routines-list"></div>
-                <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px">
-                    <label style="font-size:12px; color:#888;">Clonar nueva rutina:</label>
-                    <div style="display:flex; gap:10px">
-                        <select id="client-clone-select" style="margin:0"></select>
-                        <button class="btn-secondary" style="width:auto; margin:0" onclick="admin.cloneRoutineFromClientView()">+</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
-            <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
-            <div class="section-card"><h4>Historial (Click para detalles)</h4><div id="client-detail-history" class="history-container"></div></div>
+            <div class="section-card"><h4>Rutinas</h4><div id="client-routines-list"></div></div>
+            <div class="section-card"><h4>Historial</h4><div id="client-detail-history"></div></div>
+            <button class="btn-secondary" onclick="window.app.navTo('admin')">VOLVER AL PANEL</button>
         </section>
 
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
-                <div class="timer-box"><span class="timer-label">TIEMPO</span><span id="global-timer">00:00</span></div>
+                <div style="font-family:'Russo One'; font-size:24px" id="global-timer">00:00</div>
                 <div style="display:flex; gap:5px">
-                    <button onclick="workoutManager.cancelWorkout()" class="btn-danger-outline">CANCELAR</button>
-                    <button onclick="workoutManager.openFinishModal()" class="btn-finish">FINALIZAR</button>
+                    <button onclick="window.workoutManager.cancelWorkout()" class="btn-danger-outline">CANCELAR</button>
+                    <button onclick="window.workoutManager.openFinishModal()" class="btn-finish">FINALIZAR</button>
                 </div>
             </div>
             <div id="active-exercises-container"></div>
         </section>
 
         <section id="view-profile" class="view hidden">
-            <div class="profile-header">
-                <div class="avatar-container" onclick="document.getElementById('avatar-input').click()">
-                    <img id="profile-img" src="assets/placeholder-body.png" class="profile-avatar">
-                    <div class="avatar-overlay"><i class="material-icons-round">photo_camera</i></div>
-                </div>
-                <input type="file" id="avatar-input" hidden accept="image/*" onchange="profile.uploadPhoto(this)">
-                <h2 id="profile-name">...</h2>
-                <span id="profile-role-badge" class="role-badge">Cliente</span>
+            <div class="section-card">
+                <h3>Actualizar Datos</h3>
+                <input type="number" id="stats-weight" placeholder="Peso (kg)">
+                <input type="number" id="stats-fat" placeholder="% Grasa">
+                <input type="number" id="stats-muscle" placeholder="% Músculo">
+                <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
             </div>
-
-            <div class="profile-tabs">
-                <button class="tab-btn active" onclick="profile.switchTab('stats')">Progreso</button>
-                <button class="tab-btn" onclick="profile.switchTab('history')">Historial</button>
-                <button class="tab-btn" onclick="profile.switchTab('config')">Ajustes</button>
-            </div>
-
-            <div id="tab-stats" class="tab-content">
-                <div class="stats-grid">
-                    <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
-                    <div class="stat-box"><small>SERIES</small><strong id="stat-sets">0</strong></div>
-                    <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
-                    <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
-                </div>
-                <div class="section-card">
-                    <h3>Actualizar Medidas</h3>
-                    <div class="row">
-                        <input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%">
-                        <input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%">
-                        <input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%">
-                    </div>
-                    <button class="btn-primary" onclick="profile.saveStats()">REGISTRAR</button>
-                </div>
-                <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
-                <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
-                <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
-                <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
-            </div>
-
-            <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
-
-            <div id="tab-config" class="tab-content hidden">
-                <div class="section-card">
-                    <h3>Objetivos</h3>
-                    <label>Días de entreno por semana:</label>
-                    <input type="number" id="conf-weekly-goal" placeholder="Ej: 4">
-                    <label>Tiempo Descanso (seg):</label>
-                    <input type="number" id="conf-rest-time" placeholder="Ej: 60">
-                    <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR CAMBIOS</button>
-                    <div class="settings-row" style="margin-top:20px; display:flex; justify-content:space-between;">
-                        <button class="btn-icon-large" onclick="profile.requestNotify()"><i class="material-icons-round">notifications_active</i><span>Avisos</span></button>
-                        <button class="btn-icon-large" onclick="profile.testSound()"><i class="material-icons-round">volume_up</i><span>Test Sonido</span></button>
-                    </div>
-                </div>
+            <div class="section-card"><h3>Evolución Peso</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
+            <div class="section-card">
+                <h3>Configuración</h3>
+                <label>Objetivo Semanal (Días):</label>
+                <input type="number" id="conf-weekly-goal" placeholder="4">
+                <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR</button>
             </div>
         </section>
 
     </main>
 
-    <div id="toast-container"></div>
-
-    <div id="rest-modal" class="modal-overlay hidden" style="z-index: 9999;">
-        <div class="modal-content">
-            <h3 class="blink">DESCANSANDO</h3>
-            <div id="rest-countdown">00:00</div>
-            <button onclick="workoutManager.stopRest()" class="btn-primary">SEGUIR</button>
+    <div id="rest-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
+            <h1 id="rest-countdown">00:00</h1>
+            <button onclick="window.workoutManager.stopRest()" class="btn-primary">¡A DARLE!</button>
         </div>
     </div>
 
-    <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;">
-        <div class="modal-content">
-            <h3>INTENSIDAD (RPE)</h3>
-            <div class="traffic-light-container">
-                <button class="traffic-btn green" onclick="workoutManager.confirmFinish('Ligero')"><i class="material-icons-round">sentiment_satisfied</i><span>FÁCIL</span></button>
-                <button class="traffic-btn orange" onclick="workoutManager.confirmFinish('Moderado')"><i class="material-icons-round">sentiment_neutral</i><span>MEDIO</span></button>
-                <button class="traffic-btn red" onclick="workoutManager.confirmFinish('Intenso')"><i class="material-icons-round">whatshot</i><span>DIFICIL</span></button>
+    <div id="finish-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
+            <h3>¿Qué tal fue?</h3>
+            <div style="display:flex; gap:10px; margin:20px 0">
+                <button onclick="window.workoutManager.confirmFinish('Ligero')" style="flex:1; background:green; border:none; padding:10px; border-radius:5px">Fácil</button>
+                <button onclick="window.workoutManager.confirmFinish('Moderado')" style="flex:1; background:orange; border:none; padding:10px; border-radius:5px">Medio</button>
+                <button onclick="window.workoutManager.confirmFinish('Intenso')" style="flex:1; background:red; border:none; padding:10px; border-radius:5px">Dificil</button>
             </div>
-            <textarea id="final-notes" placeholder="Notas del entreno..."></textarea>
-            <button class="btn-text" onclick="document.getElementById('finish-modal').classList.add('hidden')">Volver</button>
-        </div>
-    </div>
-
-    <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;">
-        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
-                <h3 style="margin:0" id="wd-title">Detalles</h3>
-                <button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button>
-            </div>
-            <div id="wd-content"></div>
+            <textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea>
+            <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button>
         </div>
     </div>
 
     <nav id="bottom-nav" class="hidden">
-        <a onclick="app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></a>
-        <a onclick="app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></a>
+        <div onclick="window.app.navTo('dashboard')" class="nav-item"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
+        <div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div>
     </nav>
 
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
-    <script type="module" src="app.js"></script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // --- DATOS DE EJERCICIOS (Embed) ---
+        const EXERCISES = [
+            {n:"Sentadilla", m:"Cuádriceps"}, {n:"Press Banca", m:"Pecho"}, 
+            {n:"Peso Muerto", m:"Espalda"}, {n:"Dominadas", m:"Espalda"},
+            {n:"Press Militar", m:"Hombros"}, {n:"Curl Bíceps", m:"Bíceps"},
+            {n:"Extensión Tríceps", m:"Tríceps"}, {n:"Zancadas", m:"Cuádriceps"}
+        ];
+
+        // --- CONFIG FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
+            authDomain: "bcn-fitness.firebaseapp.com",
+            projectId: "bcn-fitness",
+            storageBucket: "bcn-fitness.firebasestorage.app",
+            messagingSenderId: "193657523158",
+            appId: "1:193657523158:web:2c50129da8a4e7a07cf277"
+        };
+
+        const appInstance = initializeApp(firebaseConfig);
+        const auth = getAuth(appInstance);
+        const db = getFirestore(appInstance);
+
+        const state = { user: null, profile: null, activeWorkout: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') } };
+
+        // --- GESTORES ---
+        const app = {
+            init: () => {
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        state.user = user;
+                        const docSnap = await getDoc(doc(db, "users", user.uid));
+                        if(docSnap.exists()) {
+                            state.profile = docSnap.data();
+                            if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
+                            app.handleLoginSuccess();
+                        } else {
+                            signOut(auth);
+                        }
+                    } else {
+                        app.navTo('login');
+                        setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500);
+                    }
+                });
+                
+                // EVENTOS MANUALES PARA ASEGURAR QUE FUNCIONAN
+                document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
+                document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
+            },
+
+            login: async () => {
+                try {
+                    await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value);
+                } catch(e) { alert("Error: " + e.message); }
+            },
+
+            register: async () => {
+                if(document.getElementById('reg-code').value !== 'bcnfitness') return alert("Código incorrecto");
+                try {
+                    const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value);
+                    await setDoc(doc(db, "users", cred.user.uid), {
+                        name: document.getElementById('reg-name').value,
+                        role: 'athlete',
+                        approved: false,
+                        settings: { weeklyGoal: 3, restTime: 60 },
+                        statsHistory: [],
+                        createdAt: new Date()
+                    });
+                } catch(e) { alert("Error: " + e.message); }
+            },
+
+            handleLoginSuccess: () => {
+                const btn = document.getElementById('admin-btn');
+                if(state.profile.role === 'admin' || state.profile.role === 'coach') {
+                    btn.classList.remove('hidden');
+                    admin.loadUsers(); // Cargar usuarios inmediatamente si es coach
+                }
+                
+                const saved = localStorage.getItem('bcn_workout');
+                if(saved) {
+                    state.activeWorkout = JSON.parse(saved);
+                    workoutManager.uiInit();
+                } else {
+                    app.navTo('dashboard');
+                }
+                document.getElementById('splash-screen').classList.add('hidden');
+            },
+
+            navTo: (view) => {
+                document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
+                document.getElementById('view-'+view).classList.remove('hidden');
+                document.getElementById('view-'+view).classList.add('active');
+                
+                const isAuth = view === 'login' || view === 'register';
+                document.getElementById('app-header').classList.toggle('hidden', isAuth);
+                document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || view === 'workout');
+
+                if(view === 'dashboard') dashboard.render();
+                if(view === 'profile') profile.render();
+                if(view === 'admin') admin.render();
+            }
+        };
+
+        const workoutManager = {
+            start: async (rid, rname) => {
+                const docSnap = await getDoc(doc(db, "routines", rid));
+                const data = docSnap.data();
+                state.activeWorkout = {
+                    name: rname,
+                    start: Date.now(),
+                    exercises: data.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) }))
+                };
+                localStorage.setItem('bcn_workout', JSON.stringify(state.activeWorkout));
+                workoutManager.uiInit();
+            },
+
+            uiInit: () => {
+                app.navTo('workout');
+                const container = document.getElementById('active-exercises-container');
+                container.innerHTML = '';
+                state.activeWorkout.exercises.forEach((ex, idx) => {
+                    let setsHtml = '';
+                    ex.sets.forEach((s, sIdx) => {
+                        setsHtml += `
+                        <div class="set-row ${s.done?'set-completed':''}">
+                            <span>#${sIdx+1}</span>
+                            <input type="number" placeholder="reps" value="${s.reps}" onchange="window.workoutManager.updateSet(${idx},${sIdx},'reps',this.value)">
+                            <input type="number" placeholder="kg" value="${s.kg}" onchange="window.workoutManager.updateSet(${idx},${sIdx},'kg',this.value)">
+                            <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${sIdx})">✔</div>
+                        </div>`;
+                    });
+                    container.innerHTML += `<div class="exercise-card"><h3>${ex.n}</h3>${setsHtml}</div>`;
+                });
+                
+                // Timer Global
+                setInterval(() => {
+                    const diff = Math.floor((Date.now() - state.activeWorkout.start) / 1000);
+                    const m = Math.floor(diff/60).toString().padStart(2,'0');
+                    const s = (diff%60).toString().padStart(2,'0');
+                    document.getElementById('global-timer').innerText = `${m}:${s}`;
+                }, 1000);
+            },
+
+            updateSet: (exIdx, sIdx, field, val) => {
+                state.activeWorkout.exercises[exIdx].sets[sIdx][field] = val;
+                localStorage.setItem('bcn_workout', JSON.stringify(state.activeWorkout));
+            },
+
+            toggleSet: (exIdx, sIdx) => {
+                const s = state.activeWorkout.exercises[exIdx].sets[sIdx];
+                s.done = !s.done;
+                if(s.done) {
+                    if(state.sounds.beep) state.sounds.beep.play().catch(e=>console.log(e));
+                    workoutManager.startRest(state.profile.settings?.restTime || 60);
+                }
+                workoutManager.uiInit(); // Re-render para actualizar colores
+            },
+
+            startRest: (sec) => {
+                const modal = document.getElementById('rest-modal');
+                modal.classList.remove('hidden');
+                let remaining = sec;
+                if(state.restTimer) clearInterval(state.restTimer);
+                
+                const update = () => {
+                    document.getElementById('rest-countdown').innerText = remaining;
+                    if(remaining <= 0) {
+                        if(state.sounds.beep) state.sounds.beep.play().catch(e=>console.log(e));
+                        if(navigator.vibrate) navigator.vibrate([200,200]);
+                        workoutManager.stopRest();
+                    }
+                    remaining--;
+                };
+                update();
+                state.restTimer = setInterval(update, 1000);
+            },
+
+            stopRest: () => {
+                clearInterval(state.restTimer);
+                document.getElementById('rest-modal').classList.add('hidden');
+            },
+
+            cancelWorkout: () => {
+                if(confirm("¿Cancelar?")) {
+                    localStorage.removeItem('bcn_workout');
+                    state.activeWorkout = null;
+                    app.navTo('dashboard');
+                }
+            },
+
+            openFinishModal: () => {
+                document.getElementById('finish-modal').classList.remove('hidden');
+            },
+
+            confirmFinish: async (rpe) => {
+                document.getElementById('finish-modal').classList.add('hidden');
+                try {
+                    await addDoc(collection(db, "workouts"), {
+                        userId: state.user.uid,
+                        date: new Date(),
+                        data: state.activeWorkout,
+                        rpe: rpe,
+                        notes: document.getElementById('final-notes').value
+                    });
+                    localStorage.removeItem('bcn_workout');
+                    state.activeWorkout = null;
+                    alert("¡Entreno Guardado!");
+                    confetti();
+                    app.navTo('dashboard');
+                } catch(e) { alert("Error al guardar: " + e.message); }
+            }
+        };
+
+        const dashboard = {
+            render: async () => {
+                const container = document.getElementById('routines-list');
+                container.innerHTML = 'Cargando...';
+                
+                // Progreso semanal
+                const now = new Date();
+                const start = new Date(now.setDate(now.getDate() - now.getDay() + 1));
+                start.setHours(0,0,0,0);
+                
+                // Consulta SEGURA sin indices complejos
+                const qDocs = await getDocs(query(collection(db, "workouts"), where("userId", "==", state.user.uid)));
+                let weekCount = 0;
+                qDocs.forEach(d => {
+                    if(d.data().date.seconds * 1000 > start.getTime()) weekCount++;
+                });
+                
+                const goal = state.profile.settings?.weeklyGoal || 3;
+                document.getElementById('weekly-count').innerText = `${weekCount}/${goal}`;
+                document.getElementById('weekly-bar').style.width = Math.min((weekCount/goal)*100, 100) + '%';
+
+                // Rutinas
+                const qRut = await getDocs(collection(db, "routines"));
+                container.innerHTML = '';
+                qRut.forEach(doc => {
+                    const r = doc.data();
+                    if(r.assignedTo === state.user.uid) {
+                        container.innerHTML += `
+                        <div class="section-card" onclick="window.workoutManager.start('${doc.id}', '${r.name}')">
+                            <h3>${r.name}</h3>
+                            <p>${r.exercises.length} Ejercicios</p>
+                            <button class="btn-primary" style="margin-top:5px">EMPEZAR</button>
+                        </div>`;
+                    }
+                });
+            }
+        };
+
+        const admin = {
+            render: () => {
+                admin.loadUsers();
+                // Llenar selector ejercicios
+                const sel = document.getElementById('admin-exercise-select');
+                sel.innerHTML = '';
+                EXERCISES.forEach((ex, i) => sel.innerHTML += `<option value="${i}">${ex.n}</option>`);
+                state.newRoutine = [];
+            },
+
+            loadUsers: async () => {
+                const div = document.getElementById('admin-users-list');
+                div.innerHTML = 'Cargando...';
+                try {
+                    const snap = await getDocs(collection(db, "users"));
+                    div.innerHTML = '';
+                    const selectAssign = document.getElementById('assign-client-select');
+                    selectAssign.innerHTML = '<option disabled selected>Elegir Cliente...</option>';
+                    
+                    snap.forEach(d => {
+                        const u = d.data();
+                        div.innerHTML += `
+                        <div class="user-row" onclick="window.admin.viewClient('${d.id}')">
+                            <div><strong>${u.name}</strong><br><small>${u.clientType}</small></div>
+                            ${!u.approved ? '<span style="color:orange">PENDIENTE</span>' : ''}
+                        </div>`;
+                        selectAssign.innerHTML += `<option value="${d.id}">${u.name}</option>`;
+                    });
+                } catch(e) { console.error(e); div.innerHTML = 'Error'; }
+            },
+
+            addExerciseToRoutine: () => {
+                const idx = document.getElementById('admin-exercise-select').value;
+                const ex = EXERCISES[idx];
+                state.newRoutine.push({...ex, defaultSets: [{reps:12},{reps:12},{reps:12}]});
+                admin.renderPreview();
+            },
+
+            renderPreview: () => {
+                const div = document.getElementById('admin-routine-preview');
+                div.innerHTML = state.newRoutine.map(e => `<div>${e.n} (3 series)</div>`).join('');
+            },
+
+            saveRoutine: async () => {
+                const name = document.getElementById('new-routine-name').value;
+                const client = document.getElementById('assign-client-select').value;
+                if(!name || !client) return alert("Faltan datos");
+                
+                await addDoc(collection(db, "routines"), {
+                    name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date()
+                });
+                alert("Guardada");
+                state.newRoutine = [];
+                document.getElementById('new-routine-name').value = '';
+                admin.renderPreview();
+            },
+
+            viewClient: async (uid) => {
+                const docSnap = await getDoc(doc(db, "users", uid));
+                const u = docSnap.data();
+                document.getElementById('client-detail-name').innerText = u.name;
+                
+                // Mostrar gráficas y medidas si existen
+                const lastStat = u.statsHistory ? u.statsHistory[u.statsHistory.length-1] : null;
+                document.getElementById('cd-weight').innerText = lastStat ? lastStat.weight : '--';
+                document.getElementById('cd-fat').innerText = lastStat ? lastStat.fat : '--';
+                document.getElementById('cd-muscle').innerText = lastStat ? lastStat.muscle : '--';
+
+                // Historial Cliente (Sin indice complejo)
+                const histDiv = document.getElementById('client-detail-history');
+                histDiv.innerHTML = 'Cargando...';
+                const wSnap = await getDocs(query(collection(db, "workouts"), where("userId", "==", uid)));
+                histDiv.innerHTML = '';
+                wSnap.forEach(wd => {
+                    const w = wd.data();
+                    const d = new Date(w.date.seconds*1000).toLocaleDateString();
+                    histDiv.innerHTML += `<div class="history-item"><b>${d}</b> - ${w.data.name}<br>RPE: ${w.rpe}</div>`;
+                });
+
+                app.navTo('client-detail');
+            }
+        };
+
+        const profile = {
+            render: () => {
+                document.getElementById('profile-name').innerText = state.profile.name;
+                // Gráfica de peso simple
+                if(state.profile.statsHistory) {
+                    const ctx = document.getElementById('weightChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: state.profile.statsHistory.map(s => new Date(s.date.seconds*1000).toLocaleDateString()),
+                            datasets: [{label:'Peso', data:state.profile.statsHistory.map(s=>s.weight), borderColor:'#39ff14'}]
+                        }
+                    });
+                }
+            },
+            saveStats: async () => {
+                const w = document.getElementById('stats-weight').value;
+                const f = document.getElementById('stats-fat').value;
+                const m = document.getElementById('stats-muscle').value;
+                if(w) {
+                    await updateDoc(doc(db, "users", state.user.uid), {
+                        statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m})
+                    });
+                    alert("Guardado");
+                }
+            },
+            saveSettings: async () => {
+                const goal = document.getElementById('conf-weekly-goal').value;
+                const rest = document.getElementById('conf-rest-time').value;
+                await updateDoc(doc(db, "users", state.user.uid), {
+                    "settings.weeklyGoal": goal, "settings.restTime": rest
+                });
+                state.profile.settings = { weeklyGoal: goal, restTime: rest };
+                alert("Ajustes guardados");
+            }
+        };
+
+        // EXPORTAR A WINDOW PARA QUE EL HTML LO VEA
+        window.app = app;
+        window.workoutManager = workoutManager;
+        window.admin = admin;
+        window.profile = profile;
+
+        app.init();
+    </script>
 </body>
 </html>
