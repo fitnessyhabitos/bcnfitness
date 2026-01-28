@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
+// TUS CLAVES
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -43,7 +44,6 @@ const app = {
         document.getElementById('login-form').onsubmit = app.handleLogin;
         document.getElementById('register-form').onsubmit = app.handleRegister;
         
-        // Listener Buscador Ejercicios
         document.getElementById('exercise-search').addEventListener('input', (e) => {
             admin.filterExercises(e.target.value);
         });
@@ -113,8 +113,11 @@ const app = {
 
         if(viewId === 'dashboard') dashboard.render();
         if(viewId === 'profile') profile.render();
-        if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) {
-             profile.loadHistory();
+        
+        // Cargar historial si estamos en perfil
+        if(viewId === 'profile') {
+             // Por defecto carga stats, pero si cambias a history lo carga
+             if(!document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
         }
     },
 
@@ -181,7 +184,9 @@ const admin = {
             const snapshot = await getDocs(q);
             list.innerHTML = '';
             state.allClients = [];
-            select.innerHTML = '<option value="all">Todos los Clientes</option>';
+            
+            // ELIMINADO "TODOS" - Ahora por defecto selecciona el primero o placeholder
+            select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
 
             snapshot.forEach(docSnap => {
                 const u = docSnap.data();
@@ -199,10 +204,10 @@ const admin = {
                         </div>
                         <div class="user-actions">
                             <button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', ${!u.approved})">
-                                ${u.approved ? 'ACTIVO' : 'APROBAR'}
+                                ${u.approved ? 'OK' : 'APROBAR'}
                             </button>
-                            <button class="action-btn btn-blue" onclick="admin.toggleRole('${docSnap.id}', '${u.role}')">
-                                ${u.role === 'athlete' ? 'SUBIR A COACH' : 'ES COACH'}
+                            <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')">
+                                <i class="material-icons-round" style="font-size:14px">delete</i>
                             </button>
                         </div>
                     </div>
@@ -212,15 +217,24 @@ const admin = {
         } catch (e) { list.innerHTML = 'Error cargando usuarios'; }
     },
 
-    toggleApproval: async (uid, status) => {
-        await updateDoc(doc(db, "users", uid), { approved: status });
-        admin.renderUsers();
+    // FUNCIÓN ELIMINAR USUARIO
+    deleteUser: async (uid, name) => {
+        if(!confirm(`¿Eliminar a ${name}?`)) return;
+        if(!confirm(`⚠️ ESTA ACCIÓN ES IRREVERSIBLE.\n\nSe borrará el perfil de ${name} y su acceso.`)) return;
+
+        try {
+            await deleteDoc(doc(db, "users", uid));
+            // Opcional: Borrar sus workouts (requeriría una función cloud, aquí solo borramos perfil)
+            alert("Usuario eliminado de la base de datos.");
+            admin.renderUsers();
+        } catch(e) {
+            console.error(e);
+            alert("Error al eliminar. Revisa permisos.");
+        }
     },
 
-    toggleRole: async (uid, currentRole) => {
-        if(!confirm("¿Cambiar rol de usuario?")) return;
-        const newRole = currentRole === 'athlete' ? 'coach' : 'athlete';
-        await updateDoc(doc(db, "users", uid), { role: newRole });
+    toggleApproval: async (uid, status) => {
+        await updateDoc(doc(db, "users", uid), { approved: status });
         admin.renderUsers();
     },
 
@@ -239,99 +253,52 @@ const admin = {
         document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--';
         document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
 
-        // CARGAR HISTORIAL CLIENTE
+        // CARGAR HISTORIAL Y MAPA DEL CLIENTE
         const historyContainer = document.getElementById('client-detail-history');
         historyContainer.innerHTML = 'Cargando...';
         
         try {
-            const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(10));
+            const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(20));
             const snapshot = await getDocs(q);
             historyContainer.innerHTML = '';
             
-            // MAPA MUSCULAR DATA
-            const muscleCounts = {}; 
+            const muscleCounts = {};
 
             if(snapshot.empty) historyContainer.innerHTML = '<p style="text-align:center; color:#666">Sin entrenos.</p>';
 
-            const workoutsData = [];
             snapshot.forEach(doc => {
                 const w = doc.data();
-                workoutsData.push(w);
-                
-                // Calculo volumen muscular
-                w.data.exercises.forEach(ex => {
-                    if(!muscleCounts[ex.m]) muscleCounts[ex.m] = 0;
-                    muscleCounts[ex.m] += ex.sets.length;
-                });
-
                 const d = w.date.seconds ? new Date(w.date.seconds * 1000) : new Date(w.date);
                 
-                // Item de historial clicable
+                // Contar para el mapa muscular
+                if(w.data && w.data.exercises) {
+                    w.data.exercises.forEach(ex => {
+                        if(!muscleCounts[ex.m]) muscleCounts[ex.m] = 0;
+                        muscleCounts[ex.m] += (ex.sets ? ex.sets.length : 0);
+                    });
+                }
+
                 const item = document.createElement('div');
                 item.className = 'history-item';
                 item.innerHTML = `
                     <div class="history-date">${d.toLocaleDateString()}</div>
                     <div class="history-title">${w.data.name}</div>
-                    <div style="background:#333; padding:5px; border-radius:4px; font-size:12px; color:#ccc">"${w.notes || ''}"</div>
                     <div class="history-meta"><span class="tag">${w.rpe}</span></div>
                 `;
                 item.onclick = () => profile.showWorkoutDetails(w);
                 historyContainer.appendChild(item);
             });
 
-            // RENDERIZAR MAPA MUSCULAR
-            admin.renderRadarChart('clientRadarChart', muscleCounts);
+            // PINTAR RADAR CLIENTE
+            chartHelpers.renderRadar('clientRadarChart', muscleCounts);
 
-        } catch(e) { historyContainer.innerHTML = 'Falta índice en DB (ver consola)'; console.log(e); }
+        } catch(e) { 
+            console.log(e);
+            historyContainer.innerHTML = `<p style="color:orange; font-size:12px">⚠️ Falta índice. <a href="#" style="color:white" onclick="alert('Abre la consola del navegador (F12) y haz clic en el enlace largo que aparece en rojo para crear el índice en Firebase.')">Ver solución</a></p>`;
+        }
 
-        admin.renderClientChart(user.statsHistory || []);
+        chartHelpers.renderLine('clientWeightChart', user.statsHistory || [], 'weight', '#39ff14');
         app.navTo('client-detail');
-    },
-
-    renderClientChart: (history) => {
-        const ctx = document.getElementById('clientWeightChart').getContext('2d');
-        if(window.clientChart) window.clientChart.destroy();
-        history.sort((a,b) => (a.date.seconds || a.date) - (b.date.seconds || b.date));
-        window.clientChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: history.map(h => new Date(h.date.seconds ? h.date.seconds*1000 : h.date).toLocaleDateString()),
-                datasets: [{ label: 'Peso', data: history.map(h => h.weight), borderColor: '#39ff14', tension: 0.3 }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } }
-        });
-    },
-
-    renderRadarChart: (canvasId, counts) => {
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        if(window[canvasId]) window[canvasId].destroy();
-        
-        const labels = Object.keys(counts);
-        const data = Object.values(counts);
-
-        window[canvasId] = new Chart(ctx, {
-            type: 'radar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Series Totales',
-                    data: data,
-                    backgroundColor: 'rgba(57, 255, 20, 0.2)',
-                    borderColor: '#39ff14',
-                    pointBackgroundColor: '#fff'
-                }]
-            },
-            options: {
-                scales: {
-                    r: {
-                        grid: { color: '#444' },
-                        pointLabels: { color: 'white', font: {size: 10} },
-                        ticks: { display: false, backdropColor: 'transparent' }
-                    }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
     },
 
     renderExistingRoutines: async () => {
@@ -348,10 +315,14 @@ const admin = {
 
             snapshot.forEach(docSnap => {
                 const r = docSnap.data();
-                let options = `<option value="all" ${r.assignedTo === 'all' ? 'selected' : ''}>Todos</option>`;
+                // Opciones del select (SIN "TODOS")
+                let options = `<option value="" disabled>Reasignar...</option>`;
                 state.allClients.forEach(c => {
                     options += `<option value="${c.id}" ${r.assignedTo === c.id ? 'selected' : ''}>${c.name}</option>`;
                 });
+
+                // Nombre del asignado
+                const assignedName = state.allClients.find(c => c.id === r.assignedTo)?.name || 'Sin asignar';
 
                 container.innerHTML += `
                     <div class="exercise-card" style="border-left: 4px solid #00d4ff">
@@ -361,22 +332,23 @@ const admin = {
                                 <i class="material-icons-round" style="font-size:20px">delete</i>
                             </button>
                         </div>
-                        <div style="margin-top:10px; font-size:12px; color:#aaa">${r.exercises.length} Ejercicios</div>
+                        <div style="margin-top:5px; font-size:12px; color:#aaa">Asignado a: <strong style="color:white">${assignedName}</strong></div>
                         <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px">
-                            <label style="font-size:10px; color:#666">Asignado:</label>
-                            <select onchange="admin.updateRoutineAssignment('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none">${options}</select>
+                            <select onchange="admin.updateRoutineAssignment('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%">
+                                ${options}
+                            </select>
                         </div>
                     </div>`;
             });
-        } catch(e) { container.innerHTML = 'Error'; }
+        } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
     },
 
     updateRoutineAssignment: async (routineId, newAssignee) => {
-        try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Actualizado"); } catch(e) { alert("Error"); }
+        try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Reasignado correctamente"); admin.renderExistingRoutines(); } catch(e) { alert("Error"); }
     },
 
     deleteRoutine: async (routineId) => {
-        if(!confirm("¿Borrar rutina?")) return;
+        if(!confirm("¿Borrar rutina permanentemente?")) return;
         try { await deleteDoc(doc(db, "routines", routineId)); admin.renderExistingRoutines(); } catch(e) { alert("Error"); }
     },
 
@@ -384,12 +356,10 @@ const admin = {
         const select = document.getElementById('admin-exercise-select');
         if(!select) return;
         select.innerHTML = '<option value="">Selecciona ejercicio...</option>';
-        // Mostrar todos por defecto
         EXERCISES.forEach((ex, idx) => { select.innerHTML += `<option value="${idx}">${ex.n}</option>`; });
         state.newRoutine = []; admin.renderPreview();
     },
 
-    // FILTRO BUSCADOR
     filterExercises: (term) => {
         const select = document.getElementById('admin-exercise-select');
         const lowerTerm = term.toLowerCase();
@@ -435,13 +405,13 @@ const admin = {
     saveRoutine: async () => {
         const name = document.getElementById('new-routine-name').value;
         const assignedTo = document.getElementById('assign-client-select').value;
-        if(!name || state.newRoutine.length === 0) return alert("Faltan datos");
+        if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos o cliente");
 
         try {
             await addDoc(collection(db, "routines"), {
                 name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date()
             });
-            alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = '';
+            alert("Asignada correctamente"); state.newRoutine = []; document.getElementById('new-routine-name').value = '';
             admin.renderPreview(); admin.renderExistingRoutines();
         } catch(e) { alert("Error"); }
     }
@@ -461,7 +431,8 @@ const dashboard = {
 
             snapshot.forEach(doc => {
                 const r = doc.data();
-                if(r.assignedTo === 'all' || r.assignedTo === state.user.uid) {
+                // SOLO MOSTRAR SI ES PARA MÍ
+                if(r.assignedTo === state.user.uid) {
                     count++;
                     container.innerHTML += `
                         <div class="exercise-card">
@@ -474,7 +445,7 @@ const dashboard = {
                         </div>`;
                 }
             });
-            if(count === 0) container.innerHTML = '<p style="text-align:center">Sin rutinas asignadas.</p>';
+            if(count === 0) container.innerHTML = '<p style="text-align:center">No tienes rutinas asignadas.</p>';
         } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
     }
 };
@@ -605,7 +576,11 @@ const profile = {
         const imgEl = document.getElementById('profile-img');
         if(state.profile.photoURL) imgEl.src = state.profile.photoURL;
         document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
-        profile.renderCharts();
+        chartHelpers.renderLine('weightChart', state.profile.statsHistory || [], 'weight', '#39ff14');
+        chartHelpers.renderLine('fatChart', state.profile.statsHistory || [], 'fat', '#ff3b30');
+        
+        // Cargar mapa muscular propio
+        profile.loadHistory();
     },
 
     switchTab: (tabName) => {
@@ -613,9 +588,9 @@ const profile = {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
         document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
         document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-        if(tabName === 'history') profile.loadHistory();
     },
 
+    // AQUI ESTABA EL ERROR DEL INDICE
     loadHistory: async () => {
         const list = document.getElementById('history-list'); list.innerHTML = 'Cargando...';
         try {
@@ -623,20 +598,20 @@ const profile = {
             const snapshot = await getDocs(q);
             list.innerHTML = '';
             
-            // Calculo para el radar chart del propio usuario
             const muscleCounts = {};
 
             if(snapshot.empty) return list.innerHTML = 'Sin historial.';
             snapshot.forEach(doc => {
                 const w = doc.data(); 
-                const d = w.date.seconds ? new Date(w.date.seconds * 1000) : new Date(w.date);
-                
-                // Contar volumen
-                w.data.exercises.forEach(ex => {
-                    if(!muscleCounts[ex.m]) muscleCounts[ex.m] = 0;
-                    muscleCounts[ex.m] += ex.sets.length;
-                });
+                // Sumar musculos para el radar
+                if(w.data && w.data.exercises) {
+                    w.data.exercises.forEach(ex => {
+                        if(!muscleCounts[ex.m]) muscleCounts[ex.m] = 0;
+                        muscleCounts[ex.m] += (ex.sets ? ex.sets.length : 0);
+                    });
+                }
 
+                const d = w.date.seconds ? new Date(w.date.seconds * 1000) : new Date(w.date);
                 const item = document.createElement('div');
                 item.className = 'history-item';
                 item.innerHTML = `<div class="history-date">${d.toLocaleDateString()}</div><div class="history-title">${w.data.name}</div><div class="history-meta"><span class="tag">${w.rpe}</span></div>`;
@@ -644,15 +619,25 @@ const profile = {
                 list.appendChild(item);
             });
 
-            admin.renderRadarChart('radarChart', muscleCounts);
+            // Pintar Radar
+            chartHelpers.renderRadar('radarChart', muscleCounts);
 
-        } catch(e) { list.innerHTML = 'Error (ver consola)'; }
+        } catch(e) { 
+            console.log(e);
+            list.innerHTML = `<div style="padding:15px; border:1px solid orange; color:orange">
+                ⚠️ <strong>Error de Índice</strong><br><br>
+                Firebase necesita un índice para ordenar el historial.<br>
+                <a href="#" style="color:white; text-decoration:underline" onclick="alert('Abre la consola (F12) y haz clic en el enlace largo que sale en rojo.')">Cómo arreglarlo</a>
+            </div>`;
+        }
     },
 
     showWorkoutDetails: (w) => {
         const modal = document.getElementById('workout-detail-modal');
         const content = document.getElementById('wd-content');
         const d = w.date.seconds ? new Date(w.date.seconds * 1000) : new Date(w.date);
+        
+        document.getElementById('wd-title').innerText = w.data.name;
         
         let html = `
             <p><strong>Fecha:</strong> ${d.toLocaleString()}</p>
@@ -700,25 +685,8 @@ const profile = {
             const newEntry = { date: new Date(), weight: parseFloat(w), fat: f?parseFloat(f):0, muscle: m?parseFloat(m):0 };
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
             if(!state.profile.statsHistory) state.profile.statsHistory = []; state.profile.statsHistory.push(newEntry);
-            alert("Guardado"); profile.renderCharts();
+            alert("Guardado"); profile.render();
         } catch(e) { alert("Error"); }
-    },
-
-    renderCharts: () => {
-        const history = state.profile.statsHistory || [];
-        history.sort((a,b) => (a.date.seconds || a.date) - (b.date.seconds || b.date));
-        const labels = history.map(h => new Date(h.date.seconds ? h.date.seconds*1000 : h.date).toLocaleDateString());
-        
-        const createChart = (id, label, data, color) => {
-            const ctx = document.getElementById(id); if(!ctx) return;
-            if(ctx.chartInstance) ctx.chartInstance.destroy();
-            ctx.chartInstance = new Chart(ctx, {
-                type: 'line', data: { labels: labels, datasets: [{ label: label, data: data, borderColor: color, backgroundColor: color+'20', tension: 0.3, fill: true }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { color: '#222' } } } }
-            });
-        };
-        createChart('weightChart', 'Peso', history.map(h => h.weight), '#39ff14');
-        createChart('fatChart', 'Grasa', history.map(h => h.fat || 0), '#ff3b30');
     },
 
     saveSettings: async () => {
@@ -732,5 +700,38 @@ const profile = {
     }
 };
 
-window.app = app; window.workoutManager = workoutManager; window.admin = admin; window.profile = profile;
+// HELPERS GRAFICAS PARA NO REPETIR CODIGO
+const chartHelpers = {
+    renderLine: (id, history, field, color) => {
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+        if(ctx.chartInstance) ctx.chartInstance.destroy();
+        history.sort((a,b) => (a.date.seconds || a.date) - (b.date.seconds || b.date));
+        const labels = history.map(h => new Date(h.date.seconds ? h.date.seconds*1000 : h.date).toLocaleDateString());
+        const data = history.map(h => h[field]);
+        
+        ctx.chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: [{ label: field, data: data, borderColor: color, backgroundColor: color+'20', tension: 0.3, fill: true }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { color: '#222' } } } }
+        });
+    },
+
+    renderRadar: (id, counts) => {
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+        if(ctx.chartInstance) ctx.chartInstance.destroy();
+        
+        ctx.chartInstance = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{ label: 'Series', data: Object.values(counts), backgroundColor: 'rgba(57, 255, 20, 0.2)', borderColor: '#39ff14', pointBackgroundColor: '#fff' }]
+            },
+            options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white', font: {size: 10} }, ticks: { display: false, backdropColor: 'transparent' } } }, plugins: { legend: { display: false } } }
+        });
+    }
+};
+
+window.app = app; window.workoutManager = workoutManager; window.admin = admin; window.profile = profile; window.chartHelpers = chartHelpers;
 app.init();
