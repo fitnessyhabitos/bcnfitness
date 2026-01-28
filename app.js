@@ -3,7 +3,6 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// TUS CLAVES (Reemplazar si es necesario)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -54,7 +53,7 @@ const app = {
             if (docSnap.exists()) {
                 state.profile = docSnap.data();
                 if (!state.profile.settings) state.profile.settings = { restTime: 60, weeklyGoal: 3 };
-                if (!state.profile.lastLifts) state.profile.lastLifts = {};
+                if (!state.profile.records) state.profile.records = {}; // NUEVO: Para guardar 1RM
                 app.handleLoginSuccess();
             } else {
                 await signOut(auth);
@@ -75,9 +74,6 @@ const app = {
             }
         }
         
-        const roleLabel = state.profile.clientType || state.profile.role;
-        document.getElementById('profile-role-badge').innerText = roleLabel;
-
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved));
         else {
@@ -138,49 +134,48 @@ const app = {
             await setDoc(doc(db, "users", cred.user.uid), {
                 name: document.getElementById('reg-name').value, email: document.getElementById('reg-email').value,
                 role: 'athlete', clientType: clientType, approved: false, photoURL: null,
-                settings: { restTime: 60, weeklyGoal: 3 }, lastLifts: {}, statsHistory: [], createdAt: new Date()
+                settings: { restTime: 60, weeklyGoal: 3 }, records: {}, statsHistory: [], createdAt: new Date()
             });
         } catch (err) { alert(err.message); }
+    },
+
+    // FUNCIÓN PARA MOSTRAR AVISOS (RECORDS)
+    showToast: (msg, type = 'normal') => {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        const icon = type === 'gold' ? 'emoji_events' : 'info';
+        toast.innerHTML = `<i class="material-icons-round">${icon}</i><span>${msg}</span>`;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
     }
 };
 
 const admin = {
     refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
-    
     renderUsers: async () => {
         const list = document.getElementById('admin-users-list');
         const select = document.getElementById('assign-client-select');
         if(!list) return;
         list.innerHTML = 'Cargando...';
         try {
-            // Fetch routines first to count them
             const routinesQ = query(collection(db, "routines"));
             const routinesSnap = await getDocs(routinesQ);
             const routineCounts = {};
-            routinesSnap.forEach(doc => {
-                const r = doc.data();
-                if(r.assignedTo) {
-                    routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1;
-                }
-            });
+            routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
 
             const q = query(collection(db, "users"));
             const snapshot = await getDocs(q);
             list.innerHTML = ''; state.allClients = [];
             select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
-            
             snapshot.forEach(docSnap => {
                 const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
                 const avatar = u.photoURL || 'assets/placeholder-body.png';
                 const rCount = routineCounts[docSnap.id] || 0;
-                
                 list.innerHTML += `
                     <div class="user-row">
                         <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
-                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')">
-                            <h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5>
-                            <span>${u.clientType||'Cliente'}</span>
-                        </div>
+                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div>
                         <div class="user-actions">
                             <button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', ${!u.approved})">${u.approved ? 'OK' : 'APROBAR'}</button>
                             <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
@@ -237,11 +232,7 @@ const admin = {
                 const r = docSnap.data();
                 let options = `<option value="" disabled>Reasignar...</option>`;
                 let cloneOptions = `<option value="" disabled selected>Clonar a...</option>`;
-                
-                state.allClients.forEach(c => { 
-                    options += `<option value="${c.id}" ${r.assignedTo===c.id?'selected':''}>${c.name}</option>`;
-                    cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`;
-                });
+                state.allClients.forEach(c => { options += `<option value="${c.id}" ${r.assignedTo===c.id?'selected':''}>${c.name}</option>`; cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`; });
                 const assignedName = state.allClients.find(c => c.id === r.assignedTo)?.name || 'Sin asignar';
                 container.innerHTML += `
                     <div class="exercise-card" style="border-left: 4px solid #00d4ff">
@@ -256,60 +247,27 @@ const admin = {
     
     cloneRoutine: async (routineId, targetUserId) => {
         try {
-            const docSnap = await getDoc(doc(db, "routines", routineId));
-            const data = docSnap.data();
-            await addDoc(collection(db, "routines"), {
-                ...data,
-                assignedTo: targetUserId,
-                createdAt: new Date(),
-                name: data.name + " (Copia)"
-            });
-            alert("Rutina clonada exitosamente");
-            admin.renderExistingRoutines();
-            admin.renderUsers(); // Update counts
+            const docSnap = await getDoc(doc(db, "routines", routineId)); const data = docSnap.data();
+            await addDoc(collection(db, "routines"), { ...data, assignedTo: targetUserId, createdAt: new Date(), name: data.name + " (Copia)" });
+            alert("Clonada"); admin.renderExistingRoutines(); admin.renderUsers();
         } catch(e) { alert("Error al clonar"); }
     },
 
     updateRoutineAssignment: async (routineId, newAssignee) => { try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Reasignado"); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } },
     deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina?")) return; try { await deleteDoc(doc(db, "routines", routineId)); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } },
-    
-    renderExerciseSelect: () => {
-        const select = document.getElementById('admin-exercise-select'); if(!select) return; select.innerHTML = '<option value="">Selecciona ejercicio...</option>';
-        EXERCISES.forEach((ex, idx) => { select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); state.newRoutine = []; admin.renderPreview();
-    },
-    filterExercises: (term) => {
-        const select = document.getElementById('admin-exercise-select'); const lowerTerm = term.toLowerCase(); select.innerHTML = '';
-        EXERCISES.forEach((ex, idx) => { if(ex.n.toLowerCase().includes(lowerTerm)) select.innerHTML += `<option value="${idx}">${ex.n}</option>`; });
-    },
-    addExerciseToRoutine: () => {
-        const idx = document.getElementById('admin-exercise-select').value; if(!idx) return;
-        const exData = EXERCISES[idx]; state.newRoutine.push({ ...exData, defaultSets: [ {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16} ] }); admin.renderPreview();
-    },
-    renderPreview: () => {
-        const container = document.getElementById('admin-routine-preview'); if(!container) return;
-        container.innerHTML = state.newRoutine.map((ex, exIdx) => {
-            const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
-            let setsHtml = ex.defaultSets.map((s, sIdx) => `<input type="number" class="mini-input" value="${s.reps}" onchange="admin.updateRoutineSet(${exIdx}, ${sIdx}, this.value)">`).join('');
-            return `<div class="routine-edit-row"><div class="routine-edit-header"><img src="${imgSrc}" class="routine-mini-img"><span style="font-size:14px">${ex.n}</span><button class="btn-text" style="width:auto; margin:0 0 0 auto; color:#ff3b30" onclick="admin.removeExercise(${exIdx})">x</button></div><div class="routine-sets-inputs">${setsHtml}</div></div>`;
-        }).join('');
-    },
+    renderExerciseSelect: () => { const select = document.getElementById('admin-exercise-select'); if(!select) return; select.innerHTML = '<option value="">Selecciona ejercicio...</option>'; EXERCISES.forEach((ex, idx) => { select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); state.newRoutine = []; admin.renderPreview(); },
+    filterExercises: (term) => { const select = document.getElementById('admin-exercise-select'); const lowerTerm = term.toLowerCase(); select.innerHTML = ''; EXERCISES.forEach((ex, idx) => { if(ex.n.toLowerCase().includes(lowerTerm)) select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); },
+    addExerciseToRoutine: () => { const idx = document.getElementById('admin-exercise-select').value; if(!idx) return; const exData = EXERCISES[idx]; state.newRoutine.push({ ...exData, defaultSets: [ {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16} ] }); admin.renderPreview(); },
+    renderPreview: () => { const container = document.getElementById('admin-routine-preview'); if(!container) return; container.innerHTML = state.newRoutine.map((ex, exIdx) => { const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png'; let setsHtml = ex.defaultSets.map((s, sIdx) => `<input type="number" class="mini-input" value="${s.reps}" onchange="admin.updateRoutineSet(${exIdx}, ${sIdx}, this.value)">`).join(''); return `<div class="routine-edit-row"><div class="routine-edit-header"><img src="${imgSrc}" class="routine-mini-img"><span style="font-size:14px">${ex.n}</span><button class="btn-text" style="width:auto; margin:0 0 0 auto; color:#ff3b30" onclick="admin.removeExercise(${exIdx})">x</button></div><div class="routine-sets-inputs">${setsHtml}</div></div>`; }).join(''); },
     updateRoutineSet: (exIdx, sIdx, val) => { state.newRoutine[exIdx].defaultSets[sIdx].reps = parseInt(val); },
     removeExercise: (idx) => { state.newRoutine.splice(idx, 1); admin.renderPreview(); },
-    saveRoutine: async () => {
-        const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value;
-        if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos");
-        try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); }
-    }
+    saveRoutine: async () => { const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value; if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos"); try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } }
 };
 
 const dashboard = {
     render: async () => {
-        const container = document.getElementById('routines-list');
-        if(!container) return; container.innerHTML = 'Cargando...';
-        
-        // CALCULO PROGRESO SEMANAL
+        const container = document.getElementById('routines-list'); if(!container) return; container.innerHTML = 'Cargando...';
         dashboard.calculateWeeklyProgress();
-
         try {
             const q = query(collection(db, "routines")); const snapshot = await getDocs(q); container.innerHTML = ''; let count = 0;
             snapshot.forEach(doc => {
@@ -322,22 +280,14 @@ const dashboard = {
             if(count === 0) container.innerHTML = '<p style="text-align:center">Sin rutinas.</p>';
         } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
     },
-
     calculateWeeklyProgress: async () => {
         try {
-            const now = new Date();
-            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))); // Lunes
-            startOfWeek.setHours(0,0,0,0);
-
-            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), where("date", ">=", startOfWeek));
-            const snapshot = await getDocs(q);
-            const workoutsDone = snapshot.size;
-            const goal = state.profile.settings?.weeklyGoal || 3;
-            
-            document.getElementById('weekly-count').innerText = `${workoutsDone}/${goal}`;
-            const pct = Math.min((workoutsDone / goal) * 100, 100);
-            document.getElementById('weekly-bar').style.width = pct + '%';
-        } catch(e) { console.log(e); }
+            const now = new Date(); const start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay()===0?-6:1))); start.setHours(0,0,0,0);
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), where("date", ">=", start));
+            const snap = await getDocs(q); const count = snap.size; const goal = state.profile.settings?.weeklyGoal || 3;
+            document.getElementById('weekly-count').innerText = `${count}/${goal}`;
+            document.getElementById('weekly-bar').style.width = Math.min((count/goal)*100, 100) + '%';
+        } catch(e) {}
     }
 };
 
@@ -351,7 +301,6 @@ const workoutManager = {
                 const snapshot = await getDocs(q);
                 snapshot.forEach(doc => { const w = doc.data(); if(w.data.name === routineName && !state.lastWorkoutData) state.lastWorkoutData = w.data; });
             } catch(e) {}
-
             state.activeWorkout = { name: routineName, startTime: Date.now(), exercises: routineData.exercises.map(ex => ({ ...ex, sets: ex.defaultSets ? ex.defaultSets.map(s => ({...s, kg:'', done:false})) : [] })) };
             workoutManager.enableWakeLock(); workoutManager.saveLocal(); workoutManager.uiInit();
         } catch(e) { alert("Error"); }
@@ -367,7 +316,19 @@ const workoutManager = {
         try {
             const notes = document.getElementById('final-notes').value;
             await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpeLabel, notes: notes });
-            localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); app.navTo('dashboard'); alert("¡Completado!");
+            localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); 
+            
+            // Celebración Semanal
+            const now = new Date(); const start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay()===0?-6:1)));
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), where("date", ">=", start));
+            const snap = await getDocs(q); const count = snap.size; const goal = state.profile.settings?.weeklyGoal || 3;
+            if(count >= goal) {
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+                app.showToast("¡OBJETIVO SEMANAL CUMPLIDO!", 'gold');
+            } else {
+                alert("¡Completado!");
+            }
+            app.navTo('dashboard'); 
         } catch(e) { alert("Error al guardar"); }
     },
 
@@ -386,10 +347,9 @@ const workoutManager = {
         list.innerHTML = ex.sets.map((set, sIdx) => {
             let prevText = '--';
             if(state.lastWorkoutData && state.lastWorkoutData.exercises[exIdx] && state.lastWorkoutData.exercises[exIdx].sets[sIdx]) {
-                const p = state.lastWorkoutData.exercises[exIdx].sets[sIdx];
-                prevText = `${p.reps}x${p.kg}kg`;
+                const p = state.lastWorkoutData.exercises[exIdx].sets[sIdx]; prevText = `${p.reps}x${p.kg}kg`;
             }
-            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><div class="check-box ${set.done ? 'checked' : ''}" onclick="workoutManager.toggleSet(${exIdx}, ${sIdx})">${set.done ? '<i class="material-icons-round" style="font-size:16px; color:black">check</i>' : ''}</div></div>`;
+            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><div class="check-box ${set.done ? 'checked' : ''}" onclick="workoutManager.toggleSet(${exIdx}, ${sIdx})">${set.done ? '<i class="material-icons-round" style="font-size:16px; color:black">check</i>' : ''}</div></div>`;
         }).join('');
     },
 
@@ -398,7 +358,28 @@ const workoutManager = {
     
     toggleSet: (exIdx, sIdx) => {
         const set = state.activeWorkout.exercises[exIdx].sets[sIdx]; set.done = !set.done;
-        if(set.done) { if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime); }
+        
+        // CALCULO DE RÉCORD 1RM
+        if(set.done && set.kg && set.reps) {
+            const kg = parseFloat(set.kg); const reps = parseInt(set.reps);
+            const oneRM = Math.round(kg * (1 + reps/30));
+            const exName = state.activeWorkout.exercises[exIdx].n;
+            
+            // Check record
+            if(!state.profile.records) state.profile.records = {};
+            const oldRecord = state.profile.records[exName] || 0;
+            
+            if(oneRM > oldRecord) {
+                // Nuevo récord!
+                state.profile.records[exName] = oneRM;
+                updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
+                app.showToast(`¡NUEVO RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            }
+
+            if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
+            const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime);
+        }
         workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
     },
 
@@ -408,7 +389,13 @@ const workoutManager = {
         if(state.restTimer) clearInterval(state.restTimer);
         const updateDisplay = () => {
             const now = Date.now(); const remaining = Math.ceil((endTime - now) / 1000);
-            if(remaining <= 0) { document.getElementById('rest-countdown').innerText = "00:00"; if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200,100,200]); if (document.hidden) profile.sendNotification("¡Descanso Terminado!", "Vamos a por la siguiente serie."); workoutManager.stopRest(); return; }
+            if(remaining <= 0) {
+                document.getElementById('rest-countdown').innerText = "00:00";
+                if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
+                if(navigator.vibrate) navigator.vibrate([200,100,200]);
+                if (document.hidden) profile.sendNotification("¡Descanso Terminado!", "Vamos a por la siguiente serie.");
+                workoutManager.stopRest(); return;
+            }
             document.getElementById('rest-countdown').innerText = `${Math.floor(remaining/60).toString().padStart(2,'0')}:${(remaining%60).toString().padStart(2,'0')}`;
         };
         updateDisplay(); state.restTimer = setInterval(updateDisplay, 1000);
