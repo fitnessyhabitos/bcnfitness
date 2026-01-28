@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
 // TUS CLAVES
@@ -79,22 +79,18 @@ const app = {
 
 const admin = {
     refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
-    
     renderUsers: async () => {
         const list = document.getElementById('admin-users-list');
         const select = document.getElementById('assign-client-select');
         if(!list) return;
         list.innerHTML = 'Cargando...';
         try {
-            // 1. Obtener todas las rutinas para contar
+            // Cargar rutinas primero
             const routinesSnap = await getDocs(collection(db, "routines"));
             const routineCounts = {};
-            routinesSnap.forEach(doc => { 
-                const r = doc.data(); 
-                if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; 
-            });
+            routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
 
-            // 2. Obtener usuarios
+            // Cargar usuarios
             const snapshot = await getDocs(collection(db, "users"));
             list.innerHTML = ''; state.allClients = [];
             select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
@@ -103,15 +99,10 @@ const admin = {
                 const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
                 const avatar = u.photoURL || 'assets/placeholder-body.png';
                 const rCount = routineCounts[docSnap.id] || 0;
-                
-                // Muestra el contador de rutinas [3]
                 list.innerHTML += `
                     <div class="user-row">
                         <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
-                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')">
-                            <h5>${u.name} <span class="routine-count-badge">[${rCount} Rutinas]</span></h5>
-                            <span>${u.clientType||'Cliente'}</span>
-                        </div>
+                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div>
                         <div class="user-actions">
                             ${!u.approved ? `<button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', true)">APROBAR</button>` : ''}
                             <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
@@ -119,7 +110,7 @@ const admin = {
                     </div>`;
                 select.innerHTML += `<option value="${docSnap.id}">${u.name}</option>`;
             });
-        } catch (e) { console.error(e); list.innerHTML = 'Error cargando usuarios.'; }
+        } catch (e) { console.error(e); list.innerHTML = 'Error cargando usuarios'; }
     },
     
     deleteUser: async (uid, name) => { if(!confirm(`¿Eliminar a ${name}?`)) return; if(!confirm("⚠️ Acción irreversible. ¿Continuar?")) return; try { await deleteDoc(doc(db, "users", uid)); alert("Eliminado"); admin.renderUsers(); } catch(e) { alert("Error"); } },
@@ -132,42 +123,35 @@ const admin = {
         
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
+        
+        // MOSTRAR EDAD
+        const ageEl = document.getElementById('client-detail-age');
+        if(ageEl) ageEl.innerText = `Edad: ${user.age || '--'}`;
+
         const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
         document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--'; document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--'; document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
         
-        // CALCULO DE ENTRENO SEMANAL DEL CLIENTE (PARA QUE LO VEA EL COACH)
-        dashboard.calculateClientWeeklyProgress(userId, user.settings?.weeklyGoal || 3);
-
-        // CARGA HISTORIAL CLIENTE (MODO SEGURO SIN INDICE)
+        // HISTORIAL CLIENTE SIN ORDERBY (FIXED)
         const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", userId));
-            const snapshot = await getDocs(q);
-            
-            // ORDENAR EN CLIENTE PARA EVITAR ERROR DE INDICE
+            const snapshot = await getDocs(q); 
             const workouts = [];
             snapshot.forEach(doc => workouts.push(doc.data()));
-            workouts.sort((a,b) => (b.date.seconds - a.date.seconds)); // Ordenar fecha desc
+            workouts.sort((a,b) => b.date.seconds - a.date.seconds);
 
-            historyContainer.innerHTML = ''; 
-            const muscleCounts = {};
-
+            historyContainer.innerHTML = ''; const muscleCounts = {};
             if(workouts.length === 0) historyContainer.innerHTML = '<p style="text-align:center">Sin entrenos.</p>';
-
-            workouts.slice(0, 10).forEach(w => { // Mostrar últimos 10
+            
+            workouts.slice(0, 10).forEach(w => {
                 const d = w.date.seconds ? new Date(w.date.seconds*1000) : new Date(w.date);
-                if(w.data && w.data.exercises) { 
-                    w.data.exercises.forEach(ex => { 
-                        if(!muscleCounts[ex.m]) muscleCounts[ex.m]=0; 
-                        muscleCounts[ex.m]+= (ex.sets ? ex.sets.length : 0); 
-                    }); 
-                }
+                if(w.data && w.data.exercises) { w.data.exercises.forEach(ex => { if(!muscleCounts[ex.m]) muscleCounts[ex.m]=0; muscleCounts[ex.m]+= (ex.sets ? ex.sets.length : 0); }); }
                 const item = document.createElement('div'); item.className = 'history-item';
                 item.innerHTML = `<div class="history-date">${d.toLocaleDateString()}</div><div class="history-title">${w.data.name}</div><div class="history-meta"><span class="tag">${w.rpe}</span></div>`;
                 item.onclick = () => profile.showWorkoutDetails(w); historyContainer.appendChild(item);
             });
             chartHelpers.renderRadar('clientRadarChart', muscleCounts);
-        } catch(e) { console.log(e); historyContainer.innerHTML = 'Error al cargar historial.'; }
+        } catch(e) { console.log(e); historyContainer.innerHTML = 'Error al cargar'; }
         
         chartHelpers.renderLine('clientWeightChart', user.statsHistory||[], 'weight', '#39ff14');
         chartHelpers.renderLine('clientFatChart', user.statsHistory||[], 'fat', '#ff3b30');
@@ -190,7 +174,6 @@ const admin = {
             const uniqueNames = new Set();
             allRoutines.forEach(doc => { 
                 const d = doc.data();
-                // Solo mostrar para clonar las que NO son de este usuario ya
                 if(d.assignedTo !== userId && !uniqueNames.has(d.name)) {
                     uniqueNames.add(d.name);
                     select.innerHTML += `<option value="${doc.id}">${d.name}</option>`; 
@@ -210,13 +193,10 @@ const admin = {
         try {
             const snapshot = await getDocs(collection(db, "routines"));
             container.innerHTML = '';
-            
             const groupedRoutines = {};
             snapshot.forEach(doc => {
                 const r = doc.data();
-                if(!groupedRoutines[r.name]) {
-                    groupedRoutines[r.name] = { id: doc.id, ...r }; 
-                }
+                if(!groupedRoutines[r.name]) groupedRoutines[r.name] = { id: doc.id, ...r };
             });
 
             if(Object.keys(groupedRoutines).length === 0) { container.innerHTML = '<p>No hay rutinas.</p>'; return; }
@@ -226,14 +206,14 @@ const admin = {
                 state.allClients.forEach(c => { cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`; });
                 
                 container.innerHTML += `
-                    <div class="exercise-card" style="border-left: 4px solid #00d4ff">
+                    <div class="exercise-card" style="border-left: 4px solid var(--neon-green)">
                         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="admin.showRoutineDetails('${r.id}')">
                             <h4 style="margin:0">${r.name}</h4>
                             <i class="material-icons-round" style="color:#666">info</i>
                         </div>
                         <div style="margin-top:5px; font-size:12px; color:#aaa">${r.exercises.length} Ejercicios</div>
                         <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px">
-                            <select onchange="admin.cloneRoutine('${r.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:#00d4ff">
+                            <select onchange="admin.cloneRoutine('${r.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:var(--neon-green)">
                                 ${cloneOptions}
                             </select>
                         </div>
@@ -276,9 +256,7 @@ const admin = {
 const dashboard = {
     render: async () => {
         const container = document.getElementById('routines-list'); if(!container) return; container.innerHTML = 'Cargando...';
-        // Calcular mi progreso
         dashboard.calculateWeeklyProgress(state.user.uid, 'weekly-count', 'weekly-bar', state.profile.settings?.weeklyGoal);
-        
         try {
             const q = query(collection(db, "routines")); const snapshot = await getDocs(q); container.innerHTML = ''; let count = 0;
             snapshot.forEach(doc => {
@@ -291,14 +269,18 @@ const dashboard = {
             if(count === 0) container.innerHTML = '<p style="text-align:center">Sin rutinas.</p>';
         } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
     },
-
-    // FUNCIÓN REUTILIZABLE PARA DASHBOARD Y VISTA DE COACH
+    
+    // CALCULADORA SEMANAL CORREGIDA (FIXED 0/0)
     calculateWeeklyProgress: async (userId, countId, barId, goalVal) => {
         try {
-            const now = new Date(); const start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay()===0?-6:1))); start.setHours(0,0,0,0);
+            const now = new Date();
+            // Calcular Lunes
+            const day = now.getDay() || 7; 
+            if(day !== 1) now.setHours(-24 * (day - 1)); 
+            now.setHours(0,0,0,0);
             
-            // Query simple sin orderBy para evitar errores de índice en dashboard
-            const q = query(collection(db, "workouts"), where("userId", "==", userId), where("date", ">=", start));
+            // Query simple sin orderBy
+            const q = query(collection(db, "workouts"), where("userId", "==", userId), where("date", ">=", now));
             const snap = await getDocs(q); 
             const count = snap.size; 
             const goal = goalVal || 3;
@@ -308,28 +290,7 @@ const dashboard = {
             
             if(elCount) elCount.innerText = `${count}/${goal}`;
             if(elBar) elBar.style.width = Math.min((count/goal)*100, 100) + '%';
-        } catch(e) { console.log("Error weekly progress", e); }
-    },
-
-    // Wrapper para el panel de coach
-    calculateClientWeeklyProgress: (userId, goal) => {
-        // Inyectamos HTML de barra en la vista de detalle si no existe
-        // Pero ya lo hemos puesto en el HTML estático, solo necesitamos actualizarlo.
-        // OJO: En el HTML estático de view-client-detail no pusimos la barra de progreso. Vamos a inyectarla dinámicamente en el encabezado.
-        const header = document.querySelector('#view-client-detail .section-card'); 
-        // Creamos un div para el progreso si no existe
-        if(!document.getElementById('client-weekly-bar')) {
-            const div = document.createElement('div');
-            div.innerHTML = `
-                <div style="margin-top:15px; background:#222; padding:10px; border-radius:8px; border:1px solid #333">
-                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px">
-                        <span>Objetivo Semanal</span><strong id="client-weekly-count" style="color:var(--neon-green)">0/0</strong>
-                    </div>
-                    <div class="progress-bar-bg"><div id="client-weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
-                </div>`;
-            header.appendChild(div);
-        }
-        dashboard.calculateWeeklyProgress(userId, 'client-weekly-count', 'client-weekly-bar', goal);
+        } catch(e) { console.log("Error weekly", e); }
     }
 };
 
@@ -339,10 +300,9 @@ const workoutManager = {
             const docRef = await getDoc(doc(db, "routines", routineId)); const routineData = docRef.data();
             state.lastWorkoutData = null;
             try {
-                // Fetch seguro sin indice complejo
+                // Fetch seguro sin indice
                 const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
                 const snapshot = await getDocs(q);
-                // Filtramos y ordenamos en cliente
                 const workouts = [];
                 snapshot.forEach(doc => workouts.push(doc.data()));
                 workouts.sort((a,b) => b.date.seconds - a.date.seconds);
@@ -364,17 +324,15 @@ const workoutManager = {
         document.getElementById('finish-modal').classList.add('hidden');
         try {
             const notes = document.getElementById('final-notes').value;
-            // Asegurar datos mínimos
-            if(!state.activeWorkout || !state.user) throw new Error("Datos corruptos");
+            // Verificar datos antes de guardar
+            if (!state.user || !state.activeWorkout) return alert("Error: No hay sesión activa");
 
             await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpeLabel, notes: notes });
             localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); 
             
-            const now = new Date(); const start = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay()===0?-6:1)));
-            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), where("date", ">=", start));
-            const snap = await getDocs(q); const count = snap.size; const goal = state.profile.settings?.weeklyGoal || 3;
-            if(count >= goal) { confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }); app.showToast("¡OBJETIVO SEMANAL CUMPLIDO!", 'gold'); } 
-            else { alert("¡Completado!"); }
+            app.showToast("¡Entreno Guardado!", "gold");
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            
             app.navTo('dashboard'); 
         } catch(e) { console.error(e); alert("Error al guardar: " + e.message); }
     },
@@ -409,7 +367,6 @@ const workoutManager = {
         if(set.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
             const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime);
-            // 1RM Logic
             if(set.kg && set.reps) {
                 const kg = parseFloat(set.kg); const reps = parseInt(set.reps);
                 const oneRM = Math.round(kg * (1 + reps/30)); const exName = state.activeWorkout.exercises[exIdx].n;
@@ -436,7 +393,6 @@ const workoutManager = {
                 document.getElementById('rest-countdown').innerText = "00:00";
                 if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
                 if(navigator.vibrate) navigator.vibrate([200,100,200]);
-                if (document.hidden) profile.sendNotification("¡Descanso Terminado!", "Vamos a por la siguiente serie.");
                 workoutManager.stopRest(); return;
             }
             document.getElementById('rest-countdown').innerText = `${Math.floor(remaining/60).toString().padStart(2,'0')}:${(remaining%60).toString().padStart(2,'0')}`;
@@ -492,13 +448,12 @@ const profile = {
     loadHistory: async () => {
         const list = document.getElementById('history-list'); list.innerHTML = 'Cargando...';
         try {
-            // MODO SEGURO SIN INDICE COMPLEJO: Carga todo y ordena en cliente
+            // MODO SEGURO SIN INDICE (Carga todo y filtra en cliente)
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
             const snapshot = await getDocs(q);
-            
             const workouts = [];
             snapshot.forEach(doc => workouts.push(doc.data()));
-            workouts.sort((a,b) => b.date.seconds - a.date.seconds); // Ordenar por fecha
+            workouts.sort((a,b) => b.date.seconds - a.date.seconds);
 
             list.innerHTML = ''; const muscleCounts = {};
             if(workouts.length === 0) return list.innerHTML = 'Sin historial.';
