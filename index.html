@@ -8,7 +8,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="BCN Fitness">
     <link rel="apple-touch-icon" href="logo.png">
-    
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="logo.png" type="image/png">
     <meta name="theme-color" content="#000000">
@@ -34,9 +33,7 @@
             <button id="admin-btn" class="icon-btn hidden" onclick="app.navTo('admin')">
                 <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
             </button>
-            <button id="logout-btn" class="icon-btn">
-                <i class="material-icons-round">logout</i>
-            </button>
+            <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
 
@@ -58,19 +55,7 @@
                     <button type="submit" class="btn-primary">ENTRAR</button>
                 </form>
                 <p class="text-link" onclick="app.navTo('register')">Crear cuenta</p>
-                
-                <div class="install-box">
-                    <p class="install-title">INSTALAR APP</p>
-                    <div class="install-row">
-                        <div class="brand-icon"><i class="material-icons-round">phone_iphone</i></div>
-                        <div class="install-text"><strong>iOS:</strong> Pulsa <i class="material-icons-round small-icon">ios_share</i> y <span class="highlight">"Añadir a inicio"</span>.</div>
-                    </div>
-                    <div class="install-divider"></div>
-                    <div class="install-row">
-                        <div class="brand-icon"><i class="material-icons-round">android</i></div>
-                        <div class="install-text"><strong>Android:</strong> Pulsa <i class="material-icons-round small-icon">more_vert</i> y <span class="highlight">"Instalar aplicación"</span>.</div>
-                    </div>
-                </div>
+                <div class="install-hint">📲 Añadir a pantalla de inicio para mejor experiencia</div>
             </div>
         </section>
 
@@ -80,13 +65,11 @@
                 <input type="text" id="reg-name" placeholder="Nombre Completo" required>
                 <input type="email" id="reg-email" placeholder="Email" required>
                 <input type="password" id="reg-pass" placeholder="Contraseña" required>
-                
-                <label style="color:#888; font-size:12px; margin-left:5px">¿Qué eres?</label>
+                <label style="color:#888; font-size:12px; margin-left:5px">Rol</label>
                 <select id="reg-role-select" style="margin-bottom:15px">
                     <option value="cliente">Cliente</option>
                     <option value="atleta">Atleta</option>
                 </select>
-
                 <div class="row">
                     <input type="number" id="reg-age" placeholder="Edad" required style="width: 48%">
                     <select id="reg-sex" style="width: 48%">
@@ -101,9 +84,7 @@
         </section>
 
         <section id="view-dashboard" class="view hidden">
-            <div id="pending-approval" class="hidden warning-box">
-                ⚠️ Cuenta pendiente de aprobación.
-            </div>
+            <div id="pending-approval" class="hidden warning-box">⚠️ Tu cuenta espera aprobación.</div>
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
         </section>
@@ -115,43 +96,67 @@
             </div>
             
             <div class="section-card">
-                <h4>Gestión de Usuarios</h4>
-                <div id="admin-users-list" class="users-list-container">
-                    </div>
+                <h4>Clientes</h4>
+                <div id="admin-users-list" class="users-list-container"></div>
             </div>
 
             <div class="section-card">
                 <h4>Crear / Asignar Rutina</h4>
-                <input type="text" id="new-routine-name" placeholder="Nombre Rutina (ej: Pierna Hipertrofia)">
-                
+                <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
                 <label style="font-size:12px; color:#888">Asignar a:</label>
-                <select id="assign-client-select">
-                    <option value="all">Todos los Clientes</option>
-                </select>
-
-                <div class="exercise-selector" style="margin-top:10px">
+                <select id="assign-client-select"><option value="all">Todos</option></select>
+                
+                <div class="exercise-selector" style="margin-top:15px">
+                    <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." style="margin-bottom:5px">
                     <select id="admin-exercise-select" style="margin-bottom:10px"></select>
-                    <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR EJERCICIO</button>
+                    <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR</button>
                 </div>
 
                 <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
-
-                <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR Y ASIGNAR</button>
+                <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR</button>
             </div>
 
             <div class="section-card">
-                <h4>Rutinas Activas</h4>
-                <div id="admin-routines-management" class="users-list-container">
-                    </div>
+                <h4>Gestión de Rutinas</h4>
+                <div id="admin-routines-management" class="users-list-container"></div>
+            </div>
+        </section>
+
+        <section id="view-client-detail" class="view hidden">
+            <div class="workout-sticky-header">
+                <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
+                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3>
+                <div style="width:28px"></div>
+            </div>
+
+            <div class="section-card" style="text-align:center">
+                <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
+                <div class="row" style="margin-top:15px; text-align:center">
+                    <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><div style="font-size:10px">PESO</div></div>
+                    <div><strong id="cd-fat" style="color:#ff3b30">--</strong><div style="font-size:10px">GRASA</div></div>
+                    <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <h4>Mapa Muscular (Volumen)</h4>
+                <div class="chart-container"><canvas id="clientRadarChart"></canvas></div>
+            </div>
+
+            <div class="section-card">
+                <h4>Evolución Peso</h4>
+                <div class="chart-container"><canvas id="clientWeightChart"></canvas></div>
+            </div>
+
+            <div class="section-card">
+                <h4>Historial de Entrenos</h4>
+                <div id="client-detail-history" class="history-container"></div>
             </div>
         </section>
 
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
-                <div class="timer-box">
-                    <span class="timer-label">TIEMPO</span>
-                    <span id="global-timer">00:00</span>
-                </div>
+                <div class="timer-box"><span class="timer-label">TIEMPO</span><span id="global-timer">00:00</span></div>
                 <div style="display:flex; gap:5px">
                     <button onclick="workoutManager.cancelWorkout()" class="btn-danger-outline">CANCELAR</button>
                     <button onclick="workoutManager.openFinishModal()" class="btn-finish">FINALIZAR</button>
@@ -167,35 +172,27 @@
                     <div class="avatar-overlay"><i class="material-icons-round">photo_camera</i></div>
                 </div>
                 <input type="file" id="avatar-input" hidden accept="image/*" onchange="profile.uploadPhoto(this)">
-                
                 <h2 id="profile-name">...</h2>
                 <span id="profile-role-badge" class="role-badge">Cliente</span>
             </div>
 
             <div class="profile-tabs">
-                <button class="tab-btn active" onclick="profile.switchTab('stats')">Medidas</button>
+                <button class="tab-btn active" onclick="profile.switchTab('stats')">Datos</button>
                 <button class="tab-btn" onclick="profile.switchTab('history')">Historial</button>
                 <button class="tab-btn" onclick="profile.switchTab('config')">Ajustes</button>
             </div>
 
             <div id="tab-stats" class="tab-content">
                 <div class="section-card">
-                    <h3>Actualizar Datos</h3>
                     <div class="row">
-                        <input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%">
+                        <input type="number" id="stats-weight" placeholder="Peso" style="width:32%">
                         <input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%">
                         <input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%">
                     </div>
                     <button class="btn-primary" onclick="profile.saveStats()">REGISTRAR</button>
                 </div>
-                <div class="section-card">
-                    <h3>Evolución Peso</h3>
-                    <div class="chart-container"><canvas id="weightChart"></canvas></div>
-                </div>
-                <div class="section-card">
-                    <h3>Evolución Composición</h3>
-                    <div class="chart-container"><canvas id="fatChart"></canvas></div>
-                </div>
+                <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
+                <div class="section-card"><h3>Peso</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
             </div>
 
             <div id="tab-history" class="tab-content hidden">
@@ -204,24 +201,13 @@
 
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
-                    <h3>Preferencias</h3>
+                    <h3>Ajustes</h3>
                     <label>Tiempo Descanso (seg):</label>
-                    <input type="number" id="conf-rest-time" placeholder="Por defecto 60">
-                    <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR CAMBIOS</button>
-                    
-                    <hr style="border:0; border-top:1px solid #333; margin:20px 0">
-                    
-                    <button class="btn-text" onclick="profile.requestNotify()">🔔 Probar Notificaciones</button>
+                    <input type="number" id="conf-rest-time">
+                    <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR</button>
+                    <button class="btn-text" onclick="profile.requestNotify()">🔔 Notificaciones</button>
                 </div>
             </div>
-        </section>
-
-        <section id="view-client-history" class="view hidden">
-            <div style="display:flex; align-items:center; margin-bottom:20px">
-                <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
-                <h3>Historial de Cliente</h3>
-            </div>
-            <div id="admin-client-history-list" class="history-container"></div>
         </section>
 
     </main>
@@ -236,26 +222,24 @@
 
     <div id="finish-modal" class="modal-overlay hidden">
         <div class="modal-content">
-            <h3>¿CÓMO HA IDO?</h3>
-            <p style="color:#888; font-size:14px; margin-bottom:20px">Selecciona la intensidad (RPE)</p>
-            
+            <h3>INTENSIDAD (RPE)</h3>
             <div class="traffic-light-container">
-                <button class="traffic-btn green" onclick="workoutManager.confirmFinish('Ligero')">
-                    <i class="material-icons-round">sentiment_satisfied</i>
-                    <span>FÁCIL</span>
-                </button>
-                <button class="traffic-btn orange" onclick="workoutManager.confirmFinish('Moderado')">
-                    <i class="material-icons-round">sentiment_neutral</i>
-                    <span>MEDIO</span>
-                </button>
-                <button class="traffic-btn red" onclick="workoutManager.confirmFinish('Intenso')">
-                    <i class="material-icons-round">whatshot</i>
-                    <span>DIFICIL</span>
-                </button>
+                <button class="traffic-btn green" onclick="workoutManager.confirmFinish('Ligero')"><i class="material-icons-round">sentiment_satisfied</i><span>FÁCIL</span></button>
+                <button class="traffic-btn orange" onclick="workoutManager.confirmFinish('Moderado')"><i class="material-icons-round">sentiment_neutral</i><span>MEDIO</span></button>
+                <button class="traffic-btn red" onclick="workoutManager.confirmFinish('Intenso')"><i class="material-icons-round">whatshot</i><span>DIFICIL</span></button>
             </div>
-
             <textarea id="final-notes" placeholder="Notas del entreno..."></textarea>
             <button class="btn-text" onclick="document.getElementById('finish-modal').classList.add('hidden')">Volver</button>
+        </div>
+    </div>
+
+    <div id="workout-detail-modal" class="modal-overlay hidden">
+        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h3 style="margin:0" id="wd-title">Detalles</h3>
+                <button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button>
+            </div>
+            <div id="wd-content"></div>
         </div>
     </div>
 
@@ -266,7 +250,6 @@
     </nav>
 
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
-
     <script type="module" src="app.js"></script>
 </body>
 </html>
