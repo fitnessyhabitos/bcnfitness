@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="BCN Fitness">
+    <title>BCN Fitness</title>
     <link rel="apple-touch-icon" href="logo.png">
-    <link rel="manifest" href="manifest.json">
     <link rel="icon" href="logo.png" type="image/png">
     <meta name="theme-color" content="#000000">
-
-    <title>BCN Fitness</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <link rel="stylesheet" href="style.css">
 </head>
@@ -28,7 +25,10 @@
     </div>
 
     <header id="app-header" class="hidden">
-        <h2 id="page-title">DASHBOARD</h2>
+        <div style="display:flex; align-items:center; gap:10px">
+            <img src="logo.png" alt="Logo" style="height:30px">
+            <h2 id="page-title" style="margin:0; font-size:20px">BCN FITNESS</h2>
+        </div>
         <div style="display:flex; gap:10px">
             <button id="admin-btn" class="icon-btn hidden" onclick="app.navTo('admin')">
                 <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
@@ -44,33 +44,17 @@
                 <img src="logo.png" alt="Logo" width="120" class="login-logo">
                 <h1>BCN FITNESS</h1>
                 <form id="login-form">
-                    <div class="input-group">
-                        <i class="material-icons-round">email</i>
-                        <input type="email" id="login-email" placeholder="Email" required>
-                    </div>
-                    <div class="input-group">
-                        <i class="material-icons-round">lock</i>
-                        <input type="password" id="login-password" placeholder="Contraseña" required>
-                    </div>
+                    <div class="input-group"><i class="material-icons-round">email</i><input type="email" id="login-email" placeholder="Email" required></div>
+                    <div class="input-group"><i class="material-icons-round">lock</i><input type="password" id="login-password" placeholder="Contraseña" required></div>
                     <button type="submit" class="btn-primary">ENTRAR</button>
                 </form>
                 <p class="text-link" onclick="app.navTo('register')">Crear cuenta</p>
-                
                 <div class="install-box">
-                    <div class="install-header">
-                        <i class="material-icons-round" style="color:var(--neon-green)">download</i>
-                        <span>INSTALAR APP</span>
-                    </div>
+                    <div class="install-header"><i class="material-icons-round" style="color:var(--neon-green)">download</i><span>INSTALAR APP</span></div>
                     <div class="install-content">
-                        <div class="install-row">
-                            <div class="brand-badge"><i class="material-icons-round">phone_iphone</i> iOS</div>
-                            <div class="install-desc">Pulsa <i class="material-icons-round tiny">ios_share</i> y <strong>"Añadir a inicio"</strong></div>
-                        </div>
+                        <div class="install-row"><div class="brand-badge"><i class="material-icons-round">phone_iphone</i> iOS</div><div class="install-desc">Pulsa <i class="material-icons-round tiny">ios_share</i> y <strong>"Añadir a inicio"</strong></div></div>
                         <div class="install-divider"></div>
-                        <div class="install-row">
-                            <div class="brand-badge"><i class="material-icons-round">android</i> Android</div>
-                            <div class="install-desc">Pulsa <i class="material-icons-round tiny">more_vert</i> y <strong>"Instalar App"</strong></div>
-                        </div>
+                        <div class="install-row"><div class="brand-badge"><i class="material-icons-round">android</i> Android</div><div class="install-desc">Pulsa <i class="material-icons-round tiny">more_vert</i> y <strong>"Instalar App"</strong></div></div>
                     </div>
                 </div>
             </div>
@@ -83,17 +67,8 @@
                 <input type="email" id="reg-email" placeholder="Email" required>
                 <input type="password" id="reg-pass" placeholder="Contraseña" required>
                 <label style="color:#888; font-size:12px; margin-left:5px">Rol</label>
-                <select id="reg-role-select" style="margin-bottom:15px">
-                    <option value="cliente">Cliente</option>
-                    <option value="atleta">Atleta</option>
-                </select>
-                <div class="row">
-                    <input type="number" id="reg-age" placeholder="Edad" required style="width: 48%">
-                    <select id="reg-sex" style="width: 48%">
-                        <option value="male">Hombre</option>
-                        <option value="female">Mujer</option>
-                    </select>
-                </div>
+                <select id="reg-role-select" style="margin-bottom:15px"><option value="cliente">Cliente</option><option value="atleta">Atleta</option></select>
+                <div class="row"><input type="number" id="reg-age" placeholder="Edad" required style="width: 48%"><select id="reg-sex" style="width: 48%"><option value="male">Hombre</option><option value="female">Mujer</option></select></div>
                 <input type="text" id="reg-code" placeholder="CÓDIGO SECRETO" required class="input-code">
                 <button type="submit" class="btn-primary">REGISTRARSE</button>
                 <button type="button" class="btn-text" onclick="app.navTo('login')">Cancelar</button>
@@ -105,8 +80,8 @@
             
             <div class="section-card" id="weekly-progress-card">
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px">
-                    <span>Semana Actual</span>
-                    <strong id="weekly-count">0/0</strong>
+                    <span>Objetivo Semanal</span>
+                    <strong id="weekly-count" style="color:var(--neon-green)">0/0</strong>
                 </div>
                 <div class="progress-bar-bg">
                     <div id="weekly-bar" class="progress-bar-fill" style="width:0%"></div>
@@ -122,41 +97,28 @@
                 <h3 style="color:var(--neon-green)">PANEL COACH</h3>
                 <button class="btn-text" onclick="admin.refreshAll()" style="width:auto; margin:0">↻ Refrescar</button>
             </div>
-            
+            <div class="section-card"><h4>Clientes</h4><div id="admin-users-list" class="users-list-container"></div></div>
             <div class="section-card">
-                <h4>Clientes</h4>
-                <div id="admin-users-list" class="users-list-container"></div>
-            </div>
-
-            <div class="section-card">
-                <h4>Crear Nueva Rutina</h4>
+                <h4>Crear / Asignar</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
                 <label style="font-size:12px; color:#888">Asignar a:</label>
                 <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
-                
                 <div class="exercise-selector" style="margin-top:15px">
                     <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." style="margin-bottom:5px">
                     <select id="admin-exercise-select" style="margin-bottom:10px"></select>
                     <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR</button>
                 </div>
-
                 <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
                 <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR</button>
             </div>
-
-            <div class="section-card">
-                <h4>Gestión Rutinas (Clonar/Borrar)</h4>
-                <div id="admin-routines-management" class="users-list-container"></div>
-            </div>
+            <div class="section-card"><h4>Gestión Rutinas</h4><div id="admin-routines-management" class="users-list-container"></div></div>
         </section>
 
         <section id="view-client-detail" class="view hidden">
             <div class="workout-sticky-header">
                 <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
-                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3>
-                <div style="width:28px"></div>
+                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
-
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
                 <div class="row" style="margin-top:15px; text-align:center">
@@ -165,7 +127,6 @@
                     <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
                 </div>
             </div>
-
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
@@ -173,10 +134,7 @@
 
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
-                <div class="timer-box">
-                    <span class="timer-label">TIEMPO</span>
-                    <span id="global-timer">00:00</span>
-                </div>
+                <div class="timer-box"><span class="timer-label">TIEMPO</span><span id="global-timer">00:00</span></div>
                 <div style="display:flex; gap:5px">
                     <button onclick="workoutManager.cancelWorkout()" class="btn-danger-outline">CANCELAR</button>
                     <button onclick="workoutManager.openFinishModal()" class="btn-finish">FINALIZAR</button>
@@ -209,7 +167,6 @@
                     <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
-
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
                     <div class="row">
@@ -219,11 +176,9 @@
                     </div>
                     <button class="btn-primary" onclick="profile.saveStats()">REGISTRAR</button>
                 </div>
-                
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
                 <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
                 <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
-                <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
 
             <div id="tab-history" class="tab-content hidden">
@@ -235,25 +190,20 @@
                     <h3>Objetivos</h3>
                     <label>Días de entreno por semana:</label>
                     <input type="number" id="conf-weekly-goal" placeholder="Ej: 4">
-                    
                     <label>Tiempo Descanso (seg):</label>
                     <input type="number" id="conf-rest-time" placeholder="Ej: 60">
-                    
                     <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR CAMBIOS</button>
-                    
                     <div class="settings-row" style="margin-top:20px; display:flex; justify-content:space-between;">
-                        <button class="btn-icon-large" onclick="profile.requestNotify()">
-                            <i class="material-icons-round">notifications_active</i><span>Avisos</span>
-                        </button>
-                        <button class="btn-icon-large" onclick="profile.testSound()">
-                            <i class="material-icons-round">volume_up</i><span>Test Sonido</span>
-                        </button>
+                        <button class="btn-icon-large" onclick="profile.requestNotify()"><i class="material-icons-round">notifications_active</i><span>Avisos</span></button>
+                        <button class="btn-icon-large" onclick="profile.testSound()"><i class="material-icons-round">volume_up</i><span>Test Sonido</span></button>
                     </div>
                 </div>
             </div>
         </section>
 
     </main>
+
+    <div id="toast-container"></div>
 
     <div id="rest-modal" class="modal-overlay hidden">
         <div class="modal-content">
