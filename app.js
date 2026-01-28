@@ -21,7 +21,7 @@ const state = {
     user: null,
     profile: null,
     activeWorkout: null,
-    lastWorkoutData: null, // Para comparar series anteriores
+    lastWorkoutData: null,
     restTimer: null,
     newRoutine: [], 
     allClients: [], 
@@ -53,7 +53,8 @@ const app = {
             const docSnap = await getDoc(doc(db, "users", uid));
             if (docSnap.exists()) {
                 state.profile = docSnap.data();
-                if (!state.profile.settings) state.profile.settings = { restTime: 60 };
+                if (!state.profile.settings) state.profile.settings = { restTime: 60, weeklyGoal: 3 };
+                if (!state.profile.lastLifts) state.profile.lastLifts = {};
                 app.handleLoginSuccess();
             } else {
                 await signOut(auth);
@@ -137,7 +138,7 @@ const app = {
             await setDoc(doc(db, "users", cred.user.uid), {
                 name: document.getElementById('reg-name').value, email: document.getElementById('reg-email').value,
                 role: 'athlete', clientType: clientType, approved: false, photoURL: null,
-                settings: { restTime: 60 }, lastLifts: {}, statsHistory: [], createdAt: new Date()
+                settings: { restTime: 60, weeklyGoal: 3 }, lastLifts: {}, statsHistory: [], createdAt: new Date()
             });
         } catch (err) { alert(err.message); }
     }
@@ -145,23 +146,41 @@ const app = {
 
 const admin = {
     refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
+    
     renderUsers: async () => {
         const list = document.getElementById('admin-users-list');
         const select = document.getElementById('assign-client-select');
         if(!list) return;
         list.innerHTML = 'Cargando...';
         try {
+            // Fetch routines first to count them
+            const routinesQ = query(collection(db, "routines"));
+            const routinesSnap = await getDocs(routinesQ);
+            const routineCounts = {};
+            routinesSnap.forEach(doc => {
+                const r = doc.data();
+                if(r.assignedTo) {
+                    routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1;
+                }
+            });
+
             const q = query(collection(db, "users"));
             const snapshot = await getDocs(q);
             list.innerHTML = ''; state.allClients = [];
             select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
+            
             snapshot.forEach(docSnap => {
                 const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
                 const avatar = u.photoURL || 'assets/placeholder-body.png';
+                const rCount = routineCounts[docSnap.id] || 0;
+                
                 list.innerHTML += `
                     <div class="user-row">
                         <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
-                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name}</h5><span>${u.clientType||'Cliente'}</span></div>
+                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')">
+                            <h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5>
+                            <span>${u.clientType||'Cliente'}</span>
+                        </div>
                         <div class="user-actions">
                             <button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', ${!u.approved})">${u.approved ? 'OK' : 'APROBAR'}</button>
                             <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
@@ -189,7 +208,6 @@ const admin = {
         document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--';
         document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
         
-        // Historial Cliente
         const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(10));
@@ -218,19 +236,42 @@ const admin = {
             snapshot.forEach(docSnap => {
                 const r = docSnap.data();
                 let options = `<option value="" disabled>Reasignar...</option>`;
-                state.allClients.forEach(c => { options += `<option value="${c.id}" ${r.assignedTo===c.id?'selected':''}>${c.name}</option>`; });
+                let cloneOptions = `<option value="" disabled selected>Clonar a...</option>`;
+                
+                state.allClients.forEach(c => { 
+                    options += `<option value="${c.id}" ${r.assignedTo===c.id?'selected':''}>${c.name}</option>`;
+                    cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`;
+                });
                 const assignedName = state.allClients.find(c => c.id === r.assignedTo)?.name || 'Sin asignar';
                 container.innerHTML += `
                     <div class="exercise-card" style="border-left: 4px solid #00d4ff">
                         <div style="display:flex; justify-content:space-between; align-items:center"><h4 style="margin:0">${r.name}</h4><button class="icon-btn" onclick="admin.deleteRoutine('${docSnap.id}')" style="color:#ff3b30"><i class="material-icons-round" style="font-size:20px">delete</i></button></div>
                         <div style="margin-top:5px; font-size:12px; color:#aaa">Asignado a: <strong style="color:white">${assignedName}</strong></div>
                         <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.updateRoutineAssignment('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%">${options}</select></div>
+                        <div style="margin-top:5px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.cloneRoutine('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:#00d4ff">${cloneOptions}</select></div>
                     </div>`;
             });
         } catch(e) { container.innerHTML = 'Error'; }
     },
-    updateRoutineAssignment: async (routineId, newAssignee) => { try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Reasignado"); admin.renderExistingRoutines(); } catch(e) { alert("Error"); } },
-    deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina?")) return; try { await deleteDoc(doc(db, "routines", routineId)); admin.renderExistingRoutines(); } catch(e) { alert("Error"); } },
+    
+    cloneRoutine: async (routineId, targetUserId) => {
+        try {
+            const docSnap = await getDoc(doc(db, "routines", routineId));
+            const data = docSnap.data();
+            await addDoc(collection(db, "routines"), {
+                ...data,
+                assignedTo: targetUserId,
+                createdAt: new Date(),
+                name: data.name + " (Copia)"
+            });
+            alert("Rutina clonada exitosamente");
+            admin.renderExistingRoutines();
+            admin.renderUsers(); // Update counts
+        } catch(e) { alert("Error al clonar"); }
+    },
+
+    updateRoutineAssignment: async (routineId, newAssignee) => { try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Reasignado"); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } },
+    deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina?")) return; try { await deleteDoc(doc(db, "routines", routineId)); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } },
     
     renderExerciseSelect: () => {
         const select = document.getElementById('admin-exercise-select'); if(!select) return; select.innerHTML = '<option value="">Selecciona ejercicio...</option>';
@@ -257,13 +298,18 @@ const admin = {
     saveRoutine: async () => {
         const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value;
         if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos");
-        try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); } catch(e) { alert("Error"); }
+        try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); }
     }
 };
 
 const dashboard = {
     render: async () => {
-        const container = document.getElementById('routines-list'); if(!container) return; container.innerHTML = 'Cargando...';
+        const container = document.getElementById('routines-list');
+        if(!container) return; container.innerHTML = 'Cargando...';
+        
+        // CALCULO PROGRESO SEMANAL
+        dashboard.calculateWeeklyProgress();
+
         try {
             const q = query(collection(db, "routines")); const snapshot = await getDocs(q); container.innerHTML = ''; let count = 0;
             snapshot.forEach(doc => {
@@ -275,6 +321,23 @@ const dashboard = {
             });
             if(count === 0) container.innerHTML = '<p style="text-align:center">Sin rutinas.</p>';
         } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
+    },
+
+    calculateWeeklyProgress: async () => {
+        try {
+            const now = new Date();
+            const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))); // Lunes
+            startOfWeek.setHours(0,0,0,0);
+
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), where("date", ">=", startOfWeek));
+            const snapshot = await getDocs(q);
+            const workoutsDone = snapshot.size;
+            const goal = state.profile.settings?.weeklyGoal || 3;
+            
+            document.getElementById('weekly-count').innerText = `${workoutsDone}/${goal}`;
+            const pct = Math.min((workoutsDone / goal) * 100, 100);
+            document.getElementById('weekly-bar').style.width = pct + '%';
+        } catch(e) { console.log(e); }
     }
 };
 
@@ -282,7 +345,6 @@ const workoutManager = {
     start: async (routineId, routineName) => {
         try {
             const docRef = await getDoc(doc(db, "routines", routineId)); const routineData = docRef.data();
-            // Buscar historial previo para mostrar datos serie a serie
             state.lastWorkoutData = null;
             try {
                 const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), orderBy("date", "desc"), limit(5));
@@ -305,7 +367,6 @@ const workoutManager = {
         try {
             const notes = document.getElementById('final-notes').value;
             await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpeLabel, notes: notes });
-            // PRs Update logic (same as V4)
             localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); app.navTo('dashboard'); alert("¡Completado!");
         } catch(e) { alert("Error al guardar"); }
     },
@@ -322,15 +383,13 @@ const workoutManager = {
     renderSets: (exIdx) => {
         const list = document.getElementById(`sets-list-${exIdx}`);
         const ex = state.activeWorkout.exercises[exIdx];
-        
         list.innerHTML = ex.sets.map((set, sIdx) => {
-            // Historial serie a serie
             let prevText = '--';
             if(state.lastWorkoutData && state.lastWorkoutData.exercises[exIdx] && state.lastWorkoutData.exercises[exIdx].sets[sIdx]) {
                 const p = state.lastWorkoutData.exercises[exIdx].sets[sIdx];
                 prevText = `${p.reps}x${p.kg}kg`;
             }
-            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><div class="check-box ${set.done ? 'checked' : ''}" onclick="workoutManager.toggleSet(${exIdx}, ${sIdx})">${set.done ? '<i class="material-icons-round" style="font-size:16px; color:black">check</i>' : ''}</div></div>`;
+            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><div class="check-box ${set.done ? 'checked' : ''}" onclick="workoutManager.toggleSet(${exIdx}, ${sIdx})">${set.done ? '<i class="material-icons-round" style="font-size:16px; color:black">check</i>' : ''}</div></div>`;
         }).join('');
     },
 
@@ -347,16 +406,9 @@ const workoutManager = {
         const modal = document.getElementById('rest-modal'); modal.classList.remove('hidden');
         const endTime = Date.now() + sec * 1000;
         if(state.restTimer) clearInterval(state.restTimer);
-        
         const updateDisplay = () => {
             const now = Date.now(); const remaining = Math.ceil((endTime - now) / 1000);
-            if(remaining <= 0) {
-                document.getElementById('rest-countdown').innerText = "00:00";
-                if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
-                if(navigator.vibrate) navigator.vibrate([200,100,200]);
-                if (document.hidden) profile.sendNotification("¡Descanso Terminado!", "Vamos a por la siguiente serie.");
-                workoutManager.stopRest(); return;
-            }
+            if(remaining <= 0) { document.getElementById('rest-countdown').innerText = "00:00"; if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); if(navigator.vibrate) navigator.vibrate([200,100,200]); if (document.hidden) profile.sendNotification("¡Descanso Terminado!", "Vamos a por la siguiente serie."); workoutManager.stopRest(); return; }
             document.getElementById('rest-countdown').innerText = `${Math.floor(remaining/60).toString().padStart(2,'0')}:${(remaining%60).toString().padStart(2,'0')}`;
         };
         updateDisplay(); state.restTimer = setInterval(updateDisplay, 1000);
@@ -380,6 +432,8 @@ const profile = {
         document.getElementById('profile-name').innerText = state.profile.name;
         const imgEl = document.getElementById('profile-img'); if(state.profile.photoURL) imgEl.src = state.profile.photoURL;
         document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
+        const goalInput = document.getElementById('conf-weekly-goal'); if(goalInput) goalInput.value = state.profile.settings.weeklyGoal || 3;
+        const restInput = document.getElementById('conf-rest-time'); if(restInput) restInput.value = state.profile.settings.restTime || 60;
         profile.renderCharts(); profile.calculateGlobalStats();
     },
 
@@ -410,8 +464,7 @@ const profile = {
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), orderBy("date", "desc"), limit(20));
             const snapshot = await getDocs(q);
-            list.innerHTML = '';
-            const muscleCounts = {};
+            list.innerHTML = ''; const muscleCounts = {};
             if(snapshot.empty) return list.innerHTML = 'Sin historial.';
             snapshot.forEach(doc => {
                 const w = doc.data(); const d = w.date.seconds ? new Date(w.date.seconds*1000) : new Date(w.date);
@@ -421,9 +474,7 @@ const profile = {
                 item.onclick = () => profile.showWorkoutDetails(w); list.appendChild(item);
             });
             chartHelpers.renderRadar('radarChart', muscleCounts);
-        } catch(e) { 
-             list.innerHTML = `<div style="padding:15px; border:1px solid orange; color:orange">⚠️ Falta Índice (Click en link consola)</div>`; 
-        }
+        } catch(e) { list.innerHTML = `<div style="padding:15px; border:1px solid orange; color:orange">⚠️ Falta Índice (Click en link consola)</div>`; }
     },
 
     showWorkoutDetails: (w) => {
@@ -432,8 +483,8 @@ const profile = {
         document.getElementById('wd-title').innerText = w.data.name;
         let html = `<p><strong>Fecha:</strong> ${d.toLocaleString()}</p><p><strong>Notas:</strong> ${w.notes || 'Ninguna'}</p><p><strong>RPE:</strong> ${w.rpe}</p><hr style="border:0; border-top:1px solid #444; margin:10px 0">`;
         w.data.exercises.forEach(ex => {
-            html += `<h4 style="margin:10px 0 5px; color:var(--neon-green)">${ex.n}</h4><table class="detail-table"><thead><tr><th>Serie</th><th>Kg</th><th>Reps</th></tr></thead><tbody>`;
-            ex.sets.forEach((s, i) => { html += `<tr><td>#${i+1}</td><td>${s.kg}</td><td>${s.reps}</td></tr>`; });
+            html += `<h4 style="margin:10px 0 5px; color:var(--neon-green)">${ex.n}</h4><table class="detail-table"><thead><tr><th>Serie</th><th>Reps</th><th>Kg</th></tr></thead><tbody>`;
+            ex.sets.forEach((s, i) => { html += `<tr><td>#${i+1}</td><td>${s.reps}</td><td>${s.kg}</td></tr>`; });
             html += `</tbody></table>`;
         });
         content.innerHTML = html; modal.classList.remove('hidden');
@@ -476,8 +527,14 @@ const profile = {
     },
 
     saveSettings: async () => {
-        const time = parseInt(document.getElementById('conf-rest-time').value); if(!time) return;
-        try { await updateDoc(doc(db, "users", state.user.uid), { "settings.restTime": time }); state.profile.settings.restTime = time; alert("Guardado"); } catch(e) { alert("Error"); }
+        const time = parseInt(document.getElementById('conf-rest-time').value);
+        const goal = parseInt(document.getElementById('conf-weekly-goal').value);
+        if(!time) return;
+        try { 
+            await updateDoc(doc(db, "users", state.user.uid), { "settings.restTime": time, "settings.weeklyGoal": goal });
+            state.profile.settings.restTime = time; state.profile.settings.weeklyGoal = goal;
+            alert("Guardado"); 
+        } catch(e) { alert("Error"); }
     },
     
     requestNotify: () => {
