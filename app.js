@@ -359,7 +359,7 @@ const workoutManager = {
                 if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
-                const dis = s.done ? 'disabled style="background:#222; color:#555; border:1px solid #333"' : '';
+                const dis = s.done ? 'disabled' : '';
                 html += `<div class="set-row ${s.done?'set-completed':''}"><span style="color:#555">#${i+1}</span><span style="font-size:10px; color:#888">${prev}</span><input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)"><input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)"><div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div></div>`;
             });
             div.innerHTML += `<div class="exercise-card"><div style="display:flex; gap:10px; align-items:center; margin-bottom:10px"><img src="assets/muscles/${ex.img}" width="40" height="40" style="background:#000; border-radius:4px"><h3>${ex.n}</h3></div>${html}</div>`;
@@ -454,6 +454,7 @@ const profile = {
         if(w) { 
             const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
+            // FORCE UPDATE LOCAL
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
             alert("Guardado"); profile.renderCharts(); 
@@ -490,20 +491,41 @@ const profile = {
     },
     requestNotify: () => { Notification.requestPermission(); },
     testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } },
+    
+    // COMPRESIÓN FOTO + ACTUALIZACIÓN INSTANTÁNEA
     uploadPhoto: (input) => {
         const file = input.files[0]; if(!file) return;
         const reader = new FileReader();
         reader.onload = async (e) => {
-            const base64 = e.target.result;
-            document.getElementById('profile-img').src = base64;
-            state.profile.photoURL = base64;
-            await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
+            // Crear imagen temporal para redimensionar
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                // Redimensionar a máximo 300px ancho (ahorra espacio en Firebase)
+                const scale = 300 / img.width;
+                canvas.width = 300;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                const base64 = canvas.toDataURL('image/jpeg', 0.7); // Compresión JPEG 70%
+                
+                // Actualizar UI
+                document.getElementById('profile-img').src = base64;
+                state.profile.photoURL = base64;
+                
+                // Guardar
+                await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
+            };
         };
         reader.readAsDataURL(file);
     },
+
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
         history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
+        
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
