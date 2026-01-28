@@ -82,13 +82,11 @@
                 <input type="text" id="reg-name" placeholder="Nombre Completo" required>
                 <input type="email" id="reg-email" placeholder="Email" required>
                 <input type="password" id="reg-pass" placeholder="Contraseña" required>
-                
                 <label style="color:#888; font-size:12px; margin-left:5px">Rol</label>
                 <select id="reg-role-select" style="margin-bottom:15px">
                     <option value="cliente">Cliente</option>
                     <option value="atleta">Atleta</option>
                 </select>
-
                 <div class="row">
                     <input type="number" id="reg-age" placeholder="Edad" required style="width: 48%">
                     <select id="reg-sex" style="width: 48%">
@@ -103,9 +101,18 @@
         </section>
 
         <section id="view-dashboard" class="view hidden">
-            <div id="pending-approval" class="hidden warning-box">
-                ⚠️ Tu cuenta espera aprobación.
+            <div id="pending-approval" class="hidden warning-box">⚠️ Tu cuenta espera aprobación.</div>
+            
+            <div class="section-card" id="weekly-progress-card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px">
+                    <span>Semana Actual</span>
+                    <strong id="weekly-count">0/0</strong>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="weekly-bar" class="progress-bar-fill" style="width:0%"></div>
+                </div>
             </div>
+
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
         </section>
@@ -122,7 +129,7 @@
             </div>
 
             <div class="section-card">
-                <h4>Crear / Asignar</h4>
+                <h4>Crear Nueva Rutina</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
                 <label style="font-size:12px; color:#888">Asignar a:</label>
                 <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
@@ -138,7 +145,7 @@
             </div>
 
             <div class="section-card">
-                <h4>Gestión Rutinas</h4>
+                <h4>Gestión Rutinas (Clonar/Borrar)</h4>
                 <div id="admin-routines-management" class="users-list-container"></div>
             </div>
         </section>
@@ -225,10 +232,14 @@
 
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
-                    <h3>Preferencias</h3>
+                    <h3>Objetivos</h3>
+                    <label>Días de entreno por semana:</label>
+                    <input type="number" id="conf-weekly-goal" placeholder="Ej: 4">
+                    
                     <label>Tiempo Descanso (seg):</label>
-                    <input type="number" id="conf-rest-time">
-                    <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR</button>
+                    <input type="number" id="conf-rest-time" placeholder="Ej: 60">
+                    
+                    <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR CAMBIOS</button>
                     
                     <div class="settings-row" style="margin-top:20px; display:flex; justify-content:space-between;">
                         <button class="btn-icon-large" onclick="profile.requestNotify()">
