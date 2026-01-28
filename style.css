@@ -60,7 +60,7 @@ input:disabled { background: #222; color: #555; border-color: #333; }
 .traffic-light-container { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
 .traffic-btn { flex: 1; border: none; border-radius: 12px; padding: 15px 5px; color: black; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: transform 0.1s; } .traffic-btn:active { transform: scale(0.95); } .traffic-btn.green { background: #4cd964; } .traffic-btn.orange { background: #ffcc00; } .traffic-btn.red { background: #ff3b30; color: white; } .traffic-btn i { font-size: 28px; }
 .history-container { max-height: 400px; overflow-y: auto; }
-.history-item { background: #1c1c1e; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #666; cursor: pointer; transition: background 0.2s; } .history-item:active { background: #333; }
+.history-item { background: #1c1c1e; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #666; cursor: pointer; }
 .history-date { font-size: 12px; color: #888; margin-bottom: 5px; }
 .history-title { font-weight: bold; color: white; font-size: 16px; margin-bottom: 5px;}
 .history-meta { display: flex; gap: 10px; margin-top: 5px; font-size: 12px; }
@@ -79,3 +79,6 @@ input:disabled { background: #222; color: #555; border-color: #333; }
 .hidden { display: none !important; } .active { display: block; animation: fadeUp 0.3s forwards; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .row { display: flex; justify-content: space-between; gap: 10px; }
+/* NUEVO PARA RESULTADOS BUSQUEDA */
+.search-result-item { padding:10px; border-bottom:1px solid #333; display:flex; align-items:center; gap:10px; cursor:pointer; }
+.search-result-item:hover { background:#333; }
