@@ -124,37 +124,38 @@
         </section>
 
         <section id="view-client-detail" class="view hidden">
-            <div class="workout-sticky-header">
-                <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
-                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
-            </div>
-            <div class="section-card" style="text-align:center">
-                <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
-                <div class="row" style="margin-top:15px; text-align:center">
-                    <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><div style="font-size:10px">PESO</div></div>
-                    <div><strong id="cd-fat" style="color:#ff3b30">--</strong><div style="font-size:10px">GRASA</div></div>
-                    <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
-                </div>
-            </div>
-            
-            <div class="section-card" style="border-left: 4px solid #00d4ff">
-                <h4>Rutinas Asignadas</h4>
-                <div id="client-routines-list"></div>
-                <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px">
-                    <label style="font-size:12px; color:#888;">Clonar nueva rutina:</label>
-                    <div style="display:flex; gap:10px">
-                        <select id="client-clone-select" style="margin:0"></select>
-                        <button class="btn-secondary" style="width:auto; margin:0" onclick="admin.cloneRoutineFromClientView()">+</button>
-                    </div>
-                </div>
-            </div>
+    <div class="workout-sticky-header">
+        <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
+        <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
+    </div>
 
-            <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
-            <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
-            <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
-            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
-            <div class="section-card"><h4>Historial (Click para detalles)</h4><div id="client-detail-history" class="history-container"></div></div>
-        </section>
+    <div class="section-card" style="text-align:center">
+        <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
+        <div class="row" style="margin-top:15px; text-align:center">
+            <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><div style="font-size:10px">PESO</div></div>
+            <div><strong id="cd-fat" style="color:#ff3b30">--</strong><div style="font-size:10px">GRASA</div></div>
+            <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
+        </div>
+        </div>
+    
+    <div class="section-card" style="border-left: 4px solid #00d4ff">
+        <h4>Rutinas Asignadas</h4>
+        <div id="client-routines-list"></div>
+        <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px">
+            <label style="font-size:12px; color:#888;">Clonar nueva rutina:</label>
+            <div style="display:flex; gap:10px">
+                <select id="client-clone-select" style="margin:0"></select>
+                <button class="btn-secondary" style="width:auto; margin:0" onclick="admin.cloneRoutineFromClientView()">+</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
+    <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
+    <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
+    <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
+    <div class="section-card"><h4>Historial (Click para detalles)</h4><div id="client-detail-history" class="history-container"></div></div>
+</section>
 
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
@@ -268,3 +269,4 @@
     <script type="module" src="app.js"></script>
 </body>
 </html>
+
