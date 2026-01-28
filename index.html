@@ -82,11 +82,13 @@
                 <input type="text" id="reg-name" placeholder="Nombre Completo" required>
                 <input type="email" id="reg-email" placeholder="Email" required>
                 <input type="password" id="reg-pass" placeholder="Contraseña" required>
+                
                 <label style="color:#888; font-size:12px; margin-left:5px">Rol</label>
                 <select id="reg-role-select" style="margin-bottom:15px">
                     <option value="cliente">Cliente</option>
                     <option value="atleta">Atleta</option>
                 </select>
+
                 <div class="row">
                     <input type="number" id="reg-age" placeholder="Edad" required style="width: 48%">
                     <select id="reg-sex" style="width: 48%">
@@ -101,7 +103,9 @@
         </section>
 
         <section id="view-dashboard" class="view hidden">
-            <div id="pending-approval" class="hidden warning-box">⚠️ Tu cuenta espera aprobación.</div>
+            <div id="pending-approval" class="hidden warning-box">
+                ⚠️ Tu cuenta espera aprobación.
+            </div>
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
         </section>
@@ -111,28 +115,41 @@
                 <h3 style="color:var(--neon-green)">PANEL COACH</h3>
                 <button class="btn-text" onclick="admin.refreshAll()" style="width:auto; margin:0">↻ Refrescar</button>
             </div>
-            <div class="section-card"><h4>Clientes</h4><div id="admin-users-list" class="users-list-container"></div></div>
+            
+            <div class="section-card">
+                <h4>Clientes</h4>
+                <div id="admin-users-list" class="users-list-container"></div>
+            </div>
+
             <div class="section-card">
                 <h4>Crear / Asignar</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
                 <label style="font-size:12px; color:#888">Asignar a:</label>
                 <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
+                
                 <div class="exercise-selector" style="margin-top:15px">
-                    <input type="search" id="exercise-search" placeholder="🔍 Buscar..." style="margin-bottom:5px">
+                    <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." style="margin-bottom:5px">
                     <select id="admin-exercise-select" style="margin-bottom:10px"></select>
                     <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR</button>
                 </div>
+
                 <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
                 <button class="btn-primary" style="margin-top:20px" onclick="admin.saveRoutine()">GUARDAR</button>
             </div>
-            <div class="section-card"><h4>Gestión Rutinas</h4><div id="admin-routines-management" class="users-list-container"></div></div>
+
+            <div class="section-card">
+                <h4>Gestión Rutinas</h4>
+                <div id="admin-routines-management" class="users-list-container"></div>
+            </div>
         </section>
 
         <section id="view-client-detail" class="view hidden">
             <div class="workout-sticky-header">
                 <button class="icon-btn" onclick="app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
-                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
+                <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3>
+                <div style="width:28px"></div>
             </div>
+
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
                 <div class="row" style="margin-top:15px; text-align:center">
@@ -141,13 +158,18 @@
                     <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
                 </div>
             </div>
-            <div class="section-card"><h4>Evolución</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
+
+            <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
+            <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
 
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
-                <div class="timer-box"><span class="timer-label">TIEMPO</span><span id="global-timer">00:00</span></div>
+                <div class="timer-box">
+                    <span class="timer-label">TIEMPO</span>
+                    <span id="global-timer">00:00</span>
+                </div>
                 <div style="display:flex; gap:5px">
                     <button onclick="workoutManager.cancelWorkout()" class="btn-danger-outline">CANCELAR</button>
                     <button onclick="workoutManager.openFinishModal()" class="btn-finish">FINALIZAR</button>
@@ -175,22 +197,10 @@
 
             <div id="tab-stats" class="tab-content">
                 <div class="stats-grid">
-                    <div class="stat-box">
-                        <small>TONELADAS</small>
-                        <strong id="stat-tonnage">0t</strong>
-                    </div>
-                    <div class="stat-box">
-                        <small>SERIES</small>
-                        <strong id="stat-sets">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <small>REPS</small>
-                        <strong id="stat-reps">0</strong>
-                    </div>
-                    <div class="stat-box">
-                        <small>ENTRENOS</small>
-                        <strong id="stat-workouts">0</strong>
-                    </div>
+                    <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
+                    <div class="stat-box"><small>SERIES</small><strong id="stat-sets">0</strong></div>
+                    <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
+                    <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
 
                 <div class="section-card">
@@ -203,9 +213,10 @@
                     <button class="btn-primary" onclick="profile.saveStats()">REGISTRAR</button>
                 </div>
                 
-                <div class="section-card"><h3>Evolución: Peso Corporal</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
-                <div class="section-card"><h3>Evolución: % Grasa</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
-                <div class="section-card"><h3>Evolución: % Músculo</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
+                <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
+                <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
+                <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
+                <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
 
             <div id="tab-history" class="tab-content hidden">
@@ -221,12 +232,10 @@
                     
                     <div class="settings-row" style="margin-top:20px; display:flex; justify-content:space-between;">
                         <button class="btn-icon-large" onclick="profile.requestNotify()">
-                            <i class="material-icons-round">notifications_active</i>
-                            <span>Activar Avisos</span>
+                            <i class="material-icons-round">notifications_active</i><span>Avisos</span>
                         </button>
                         <button class="btn-icon-large" onclick="profile.testSound()">
-                            <i class="material-icons-round">volume_up</i>
-                            <span>Test Sonido</span>
+                            <i class="material-icons-round">volume_up</i><span>Test Sonido</span>
                         </button>
                     </div>
                 </div>
@@ -251,7 +260,7 @@
                 <button class="traffic-btn orange" onclick="workoutManager.confirmFinish('Moderado')"><i class="material-icons-round">sentiment_neutral</i><span>MEDIO</span></button>
                 <button class="traffic-btn red" onclick="workoutManager.confirmFinish('Intenso')"><i class="material-icons-round">whatshot</i><span>DIFICIL</span></button>
             </div>
-            <textarea id="final-notes" placeholder="Notas..."></textarea>
+            <textarea id="final-notes" placeholder="Notas del entreno..."></textarea>
             <button class="btn-text" onclick="document.getElementById('finish-modal').classList.add('hidden')">Volver</button>
         </div>
     </div>
