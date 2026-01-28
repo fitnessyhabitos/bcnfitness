@@ -129,12 +129,12 @@ const admin = {
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
-        
         const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
-        document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--';
-        document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--';
-        document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
+        document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--'; document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--'; document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
         
+        // CALCULO DE ENTRENO SEMANAL DEL CLIENTE (FIX 0/0)
+        dashboard.calculateWeeklyProgress(userId, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
+
         // HISTORIAL CLIENTE SIN ORDERBY (Client-side Sort)
         const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
         try {
@@ -197,7 +197,6 @@ const admin = {
         try {
             const snapshot = await getDocs(collection(db, "routines"));
             container.innerHTML = '';
-            
             const groupedRoutines = {};
             snapshot.forEach(doc => {
                 const r = doc.data();
@@ -265,7 +264,7 @@ const dashboard = {
         dashboard.calculateWeeklyProgress(state.user.uid, 'weekly-count', 'weekly-bar', state.profile.settings?.weeklyGoal);
         
         try {
-            const snapshot = await getDocs(collection(db, "routines")); container.innerHTML = ''; let count = 0;
+            const q = query(collection(db, "routines")); const snapshot = await getDocs(q); container.innerHTML = ''; let count = 0;
             snapshot.forEach(doc => {
                 const r = doc.data();
                 if(r.assignedTo === state.user.uid) {
@@ -284,19 +283,21 @@ const dashboard = {
         } catch(e) { container.innerHTML = 'Error cargando rutinas'; }
     },
     
-    // CALCULADORA SEMANAL (Lunes a Domingo)
+    // CALCULADORA SEMANAL (CORREGIDA FECHA)
     calculateWeeklyProgress: async (userId, countId, barId, goalVal) => {
         try {
             const now = new Date();
+            // Truco para conseguir el Lunes a las 00:00:00
             const day = now.getDay() || 7; 
             if(day !== 1) now.setHours(-24 * (day - 1)); 
-            now.setHours(0,0,0,0); // Lunes 00:00
+            now.setHours(0,0,0,0);
             
-            // Client-side filtering to avoid index error
+            // Client-side filtering
             const q = query(collection(db, "workouts"), where("userId", "==", userId));
             const snap = await getDocs(q); 
             let weekCount = 0;
             snap.forEach(d => {
+                // Multiplicamos por 1000 porque Firestore guarda seconds
                 if(d.data().date.seconds * 1000 >= now.getTime()) weekCount++;
             });
             
@@ -316,6 +317,7 @@ const workoutManager = {
             const docRef = await getDoc(doc(db, "routines", rid)); const routineData = docRef.data();
             state.lastWorkoutData = null;
             try {
+                // Fetch seguro sin indice
                 const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
                 const snapshot = await getDocs(q);
                 const workouts = [];
@@ -391,7 +393,7 @@ const workoutManager = {
                 }
             }
         }
-        workoutManager.uiInit();
+        workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
     },
 
     startRest: (sec) => {
@@ -444,11 +446,89 @@ const workoutManager = {
             localStorage.removeItem('bcn_workout');
             state.activeWorkout = null;
             if(state.wakeLock) state.wakeLock.release();
+            
             app.showToast("¡Entreno Guardado!", "gold");
             confetti();
-            app.navTo('dashboard');
-        } catch(e) { alert("Error al guardar: " + e.message); }
-    }
+            app.navTo('dashboard'); 
+        } catch(e) { console.error(e); alert("Error al guardar: " + e.message); }
+    },
+
+    renderExercises: () => {
+        const container = document.getElementById('active-exercises-container'); if(!container) return; container.innerHTML = '';
+        state.activeWorkout.exercises.forEach((ex, exIdx) => {
+            const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
+            container.innerHTML += `<div class="exercise-card"><div style="display:flex; align-items:center; gap:10px; margin-bottom:10px"><img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'"><div><h3 style="font-size:16px; margin:0">${ex.n}</h3><small style="color:var(--neon-green)">${ex.m}</small></div>${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}</div><div id="sets-list-${exIdx}"></div><button class="btn-text" style="width:100%; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button></div>`;
+            workoutManager.renderSets(exIdx);
+        });
+    },
+
+    renderSets: (exIdx) => {
+        const list = document.getElementById(`sets-list-${exIdx}`);
+        const ex = state.activeWorkout.exercises[exIdx];
+        list.innerHTML = ex.sets.map((set, sIdx) => {
+            let prevText = '--';
+            if(state.lastWorkoutData && state.lastWorkoutData.exercises[exIdx] && state.lastWorkoutData.exercises[exIdx].sets[sIdx]) {
+                const p = state.lastWorkoutData.exercises[exIdx].sets[sIdx];
+                prevText = `${p.reps}x${p.kg}kg`;
+            }
+            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="window.workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="window.workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><div class="check-box ${set.done ? 'checked' : ''}" onclick="window.workoutManager.toggleSet(${exIdx}, ${sIdx})">✔</div></div>`;
+        }).join('');
+    },
+
+    addSet: (exIdx) => { state.activeWorkout.exercises[exIdx].sets.push({ kg:'', reps:'', done: false }); workoutManager.saveLocal(); workoutManager.renderSets(exIdx); },
+    updateSet: (exIdx, sIdx, field, val) => { state.activeWorkout.exercises[exIdx].sets[sIdx][field] = val; workoutManager.saveLocal(); },
+    
+    toggleSet: (exIdx, sIdx) => {
+        const set = state.activeWorkout.exercises[exIdx].sets[sIdx]; set.done = !set.done;
+        
+        if(set.done) {
+            if(state.sounds.beep) state.sounds.beep.play().catch(e=>{}); 
+            const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime);
+            // 1RM Logic
+            if(set.kg && set.reps) {
+                const kg = parseFloat(set.kg); const reps = parseInt(set.reps);
+                const oneRM = Math.round(kg * (1 + reps/30)); const exName = state.activeWorkout.exercises[exIdx].n;
+                if(!state.profile.records) state.profile.records = {};
+                const oldRecord = state.profile.records[exName] || 0;
+                if(oneRM > oldRecord) {
+                    state.profile.records[exName] = oneRM;
+                    updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
+                    app.showToast(`¡RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
+                    confetti();
+                }
+            }
+        }
+        workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
+    },
+
+    startRest: (sec) => {
+        const modal = document.getElementById('rest-modal');
+        modal.classList.remove('hidden');
+        let remaining = sec;
+        if(state.restTimer) clearInterval(state.restTimer);
+        const update = () => {
+            document.getElementById('rest-countdown').innerText = remaining;
+            if(remaining <= 0) {
+                if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
+                if(navigator.vibrate) navigator.vibrate([200,200]);
+                workoutManager.stopRest();
+            }
+            remaining--;
+        };
+        update();
+        state.restTimer = setInterval(update, 1000);
+    },
+
+    stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
+    
+    startGlobalTimer: () => {
+        setInterval(() => {
+            if(!state.activeWorkout) return;
+            const diff = Math.floor((Date.now() - state.activeWorkout.start) / 1000);
+            document.getElementById('global-timer').innerText = `${Math.floor(diff/60).toString().padStart(2,'0')}:${(diff%60).toString().padStart(2,'0')}`;
+        }, 1000);
+    },
+    saveLocal: () => { if(state.user) localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)); }
 };
 
 const profile = {
