@@ -9,7 +9,6 @@
     <link rel="apple-touch-icon" href="logo.png">
     <link rel="icon" href="logo.png" type="image/png">
     <meta name="theme-color" content="#000000">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
@@ -37,7 +36,6 @@
     </header>
 
     <main id="main-container">
-        
         <section id="view-login" class="view active">
             <div class="login-wrapper" style="text-align:center; padding-top:20px">
                 <img src="logo.png" alt="Logo" width="100" style="border-radius:50%; margin-bottom:20px">
@@ -109,7 +107,7 @@
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
             <div class="section-card" style="text-align:center">
-                <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto; object-fit:cover; border-radius:50%">
+                <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto; border-radius:50%; object-fit:cover">
                 <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
                 <div class="row" style="margin-top:15px; text-align:center">
                     <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><div style="font-size:10px">PESO</div></div>
@@ -171,11 +169,7 @@
                 </div>
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
-                    <div class="row">
-                        <input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%">
-                        <input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%">
-                        <input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%">
-                    </div>
+                    <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
                     <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
                 </div>
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
@@ -186,14 +180,10 @@
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
-                    <h3>Objetivos</h3>
-                    <label>Días de entreno por semana:</label><input type="number" id="conf-weekly-goal" placeholder="4">
+                    <h3>Configuración</h3>
+                    <label>Objetivo Semanal (Días):</label><input type="number" id="conf-weekly-goal" placeholder="4">
                     <label>Tiempo Descanso (seg):</label><input type="number" id="conf-rest-time" placeholder="60">
                     <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR CAMBIOS</button>
-                    <div class="settings-row" style="margin-top:20px; display:flex; gap:10px">
-                        <button class="btn-icon-large" onclick="window.profile.requestNotify()">🔔 Avisos</button>
-                        <button class="btn-icon-large" onclick="window.profile.testSound()">🔊 Test</button>
-                    </div>
                 </div>
             </div>
         </section>
@@ -215,7 +205,7 @@
                 <button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button>
                 <button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button>
             </div>
-            <textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea>
+            <textarea id="final-notes" placeholder="Notas del entreno..." style="width:100%"></textarea>
             <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button>
         </div>
     </div>
