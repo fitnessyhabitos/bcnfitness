@@ -98,7 +98,7 @@ const admin = {
             const selectAssign = document.getElementById('assign-client-select'); selectAssign.innerHTML = '<option disabled selected>Elegir Cliente...</option>';
             snap.forEach(d => {
                 const u = d.data(); state.allClients.push({id:d.id, ...u});
-                div.innerHTML += `<div class="user-row" onclick="window.admin.viewClient('${d.id}')"><img src="${u.photoURL||'assets/placeholder-body.png'}" class="user-avatar-small"><div class="user-info"><h5>${u.name} <span class="routine-count-badge">[${rCounts[d.id]||0} Rutinas]</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
+                div.innerHTML += `<div class="user-row" onclick="window.admin.viewClient('${d.id}')"><img src="${u.photoURL||'https://placehold.co/100x100/333/39ff14?text=IMG'}" class="user-avatar-small"><div class="user-info"><h5>${u.name} <span class="routine-count-badge">[${rCounts[d.id]||0} Rutinas]</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
                 selectAssign.innerHTML += `<option value="${d.id}">${u.name}</option>`;
             });
         } catch(e) { div.innerHTML = 'Error usuarios'; }
@@ -134,9 +134,11 @@ const admin = {
             div.onclick = () => profile.showWorkoutDetails(w);
             hList.appendChild(div);
         });
+        
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
-            const lineData = [...(user.statsHistory || [])].sort((a,b) => a.date.seconds - b.date.seconds);
+            // Ordenar historial para gráficas de linea
+            const lineData = [...(user.statsHistory || [])].sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
             window.chartHelpers.renderLine('clientWeightChart', lineData, 'weight', '#39ff14');
             window.chartHelpers.renderLine('clientFatChart', lineData, 'fat', '#ff3b30');
             window.chartHelpers.renderLine('clientMuscleChart', lineData, 'muscle', '#00d4ff');
@@ -204,14 +206,7 @@ const dashboard = {
         if(snap.empty) div.innerHTML = '<p style="text-align:center">No tienes rutinas asignadas.</p>';
         snap.forEach(d => {
             const r = d.data();
-            div.innerHTML += `
-            <div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer">
-                <div style="display:flex; justify-content:space-between; align-items:center">
-                    <h3 style="margin:0">${r.name}</h3>
-                    <div style="background:var(--neon-green); color:black; padding:5px 15px; border-radius:4px; font-weight:bold; font-family:'Russo One'">INICIAR</div>
-                </div>
-                <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
-            </div>`;
+            div.innerHTML += `<div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p></div>`;
         });
     },
     calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
@@ -275,7 +270,9 @@ const workoutManager = {
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
+            // 1RM Logic
             if(s.kg && s.reps) {
+                const kg = parseFloat(s.kg); const reps = parseInt(s.reps);
                 const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
                 const name = state.activeWorkout.exercises[ei].n;
                 if(!state.profile.records) state.profile.records = {};
@@ -289,7 +286,6 @@ const workoutManager = {
         }
         workoutManager.saveLocal(); workoutManager.uiInit();
     },
-    saveLocal: () => localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)),
     startRest: (sec) => {
         document.getElementById('rest-modal').classList.remove('hidden');
         let r = sec;
@@ -351,7 +347,15 @@ const profile = {
     },
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
-        if(w) { await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion({date:new Date(), weight:w, fat:f, muscle:m}) }); alert("Guardado"); }
+        if(w) { 
+            const newStat = {date: new Date(), weight:w, fat:f, muscle:m};
+            await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newStat) });
+            // FORCE UPDATE LOCAL STATE
+            if(!state.profile.statsHistory) state.profile.statsHistory = [];
+            state.profile.statsHistory.push(newStat);
+            alert("Guardado");
+            profile.renderCharts(); 
+        }
     },
     saveSettings: async () => {
         const g = parseInt(document.getElementById('conf-weekly-goal').value); const r = parseInt(document.getElementById('conf-rest-time').value);
@@ -383,14 +387,40 @@ const profile = {
         modal.classList.remove('hidden');
     },
     requestNotify: () => { Notification.requestPermission(); },
-    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } }
+    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } },
+    
+    uploadPhoto: (input) => {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const base64 = e.target.result;
+            // Update DB
+            await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
+            // Update Local State & DOM immediately
+            state.profile.photoURL = base64;
+            document.getElementById('profile-img').src = base64;
+        };
+        reader.readAsDataURL(file);
+    }
 };
 
 const chartHelpers = {
     renderLine: (id, data, field, color) => {
         const ctx = document.getElementById(id); if(!ctx) return;
         const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>new Date(d.date.seconds*1000).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
+        new Chart(ctx, { 
+            type: 'line', 
+            data: { 
+                // Handle both Firestore Timestamp (seconds) and native Date objects
+                labels: data.map(d => {
+                    const date = d.date.seconds ? new Date(d.date.seconds*1000) : new Date(d.date);
+                    return date.toLocaleDateString();
+                }), 
+                datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] 
+            }, 
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } 
+        });
     },
     renderRadar: (id, counts) => {
         const ctx = document.getElementById(id); if(!ctx) return;
