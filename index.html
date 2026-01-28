@@ -8,11 +8,14 @@
     <meta name="theme-color" content="#000000">
     <title>BCN Fitness</title>
     
+    <link rel="icon" href="logo.png" type="image/png">
+
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="logo.png" type="image/png">
 </head>
 <body>
 
@@ -24,8 +27,12 @@
     <header id="app-header" class="hidden">
         <h2 id="page-title">DASHBOARD</h2>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="app.navTo('admin')"><i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i></button>
-            <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
+            <button id="admin-btn" class="icon-btn hidden" onclick="app.navTo('admin')">
+                <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
+            </button>
+            <button id="logout-btn" class="icon-btn">
+                <i class="material-icons-round">logout</i>
+            </button>
         </div>
     </header>
 
@@ -49,7 +56,7 @@
                 <p class="text-link" onclick="app.navTo('register')">Crear cuenta de Atleta</p>
                 
                 <div class="install-box">
-                    <p class="install-title">INSTALAR APLICACIÓN</p>
+                    <p class="install-title">INSTALAR APP</p>
                     <div class="install-row">
                         <div class="brand-icon"><i class="material-icons-round">phone_iphone</i></div>
                         <div class="install-text"><strong>iOS:</strong> Pulsa <i class="material-icons-round small-icon">ios_share</i> y <span class="highlight">"Añadir a inicio"</span>.</div>
@@ -83,20 +90,30 @@
         </section>
 
         <section id="view-dashboard" class="view hidden">
-            <div id="pending-approval" class="hidden warning-box">⚠️ Cuenta pendiente de aprobación.</div>
+            <div id="pending-approval" class="hidden warning-box">
+                ⚠️ Tu cuenta está pendiente de aprobación. Habla con el Coach.
+            </div>
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
         </section>
 
         <section id="view-admin" class="view hidden">
-            <h3 style="color:var(--neon-green)">PANEL COACH</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="color:var(--neon-green)">PANEL COACH</h3>
+                <button class="btn-text" onclick="admin.renderUsers()" style="width:auto; margin:0">↻ Refrescar</button>
+            </div>
             
             <div class="section-card">
+                <h4>Atletas Registrados</h4>
+                <div id="admin-users-list" class="users-list-container">
+                    </div>
+            </div>
+
+            <div class="section-card">
                 <h4>Crear Nueva Rutina</h4>
-                <input type="text" id="new-routine-name" placeholder="Nombre Rutina (ej: Pierna Hipertrofia)">
+                <input type="text" id="new-routine-name" placeholder="Nombre Rutina (ej: Torso A)">
                 
                 <div class="exercise-selector">
-                    <label>Buscar Ejercicio:</label>
                     <select id="admin-exercise-select" style="margin-bottom:10px"></select>
                     <button class="btn-secondary" onclick="admin.addExerciseToRoutine()">+ AÑADIR EJERCICIO</button>
                 </div>
@@ -123,10 +140,10 @@
             <div id="active-exercises-container"></div>
             
             <div class="workout-notes">
-                <h4>Resumen</h4>
-                <textarea id="workout-notes" placeholder="Notas..."></textarea>
+                <h4>Resumen del Entreno</h4>
+                <textarea id="workout-notes" placeholder="Sensaciones, molestias, mejoras..."></textarea>
                 <div class="rpe-slider">
-                    <label>RPE (1-10): <span id="rpe-val">7</span></label>
+                    <label>RPE (Esfuerzo 1-10): <span id="rpe-val">7</span></label>
                     <input type="range" min="1" max="10" value="7" oninput="document.getElementById('rpe-val').innerText=this.value" id="workout-rpe">
                 </div>
             </div>
@@ -134,16 +151,14 @@
 
         <section id="view-profile" class="view hidden">
             <div class="profile-header">
-                <div class="avatar-circle" id="profile-initials">--</div>
+                <div class="avatar-container">
+                    <img id="profile-img" src="assets/placeholder-body.png" class="profile-avatar">
+                    <button class="edit-avatar-btn" onclick="document.getElementById('avatar-input').click()">
+                        <i class="material-icons-round">edit</i>
+                    </button>
+                    <input type="file" id="avatar-input" hidden accept="image/*" onchange="profile.uploadPhoto(this)">
+                </div>
                 <h2 id="profile-name">...</h2>
-            </div>
-
-            <div class="section-card">
-                <h3>Configuración</h3>
-                <label>Tiempo Descanso (segundos):</label>
-                <input type="number" id="conf-rest-time" value="60">
-                <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR PREFERENCIAS</button>
-                <button class="btn-text" style="margin-top:10px" onclick="profile.requestNotify()">🔔 Activar Notificaciones</button>
             </div>
 
             <div class="section-card">
@@ -153,14 +168,30 @@
                     <input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%">
                     <input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%">
                 </div>
-                <button class="btn-primary" onclick="profile.saveStats()">REGISTRAR MEDIDAS</button>
+                <button class="btn-primary" onclick="profile.saveStats()">REGISTRAR DATOS</button>
             </div>
 
             <div class="section-card">
-                <h3>Evolución Peso</h3>
-                <div class="chart-container">
-                    <canvas id="weightChart"></canvas>
-                </div>
+                <h3>Evolución: Peso (kg)</h3>
+                <div class="chart-container"><canvas id="weightChart"></canvas></div>
+            </div>
+            
+            <div class="section-card">
+                <h3>Evolución: % Grasa</h3>
+                <div class="chart-container"><canvas id="fatChart"></canvas></div>
+            </div>
+            
+            <div class="section-card">
+                <h3>Evolución: % Músculo</h3>
+                <div class="chart-container"><canvas id="muscleChart"></canvas></div>
+            </div>
+            
+            <div class="section-card">
+                <h3>Configuración</h3>
+                <label>Tiempo Descanso (segundos):</label>
+                <input type="number" id="conf-rest-time">
+                <button class="btn-secondary" onclick="profile.saveSettings()">GUARDAR PREFERENCIAS</button>
+                <button class="btn-text" style="margin-top:10px" onclick="profile.requestNotify()">🔔 Activar Notificaciones</button>
             </div>
         </section>
 
@@ -169,12 +200,8 @@
     <div id="rest-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h3 class="blink">DESCANSANDO</h3>
-            <div id="rest-countdown">01:00</div>
-            <div class="modal-actions">
-                <button onclick="workoutManager.adjustRest(-10)">-10s</button>
-                <button onclick="workoutManager.stopRest()" class="btn-primary">¡A DARLE!</button>
-                <button onclick="workoutManager.adjustRest(+10)">+10s</button>
-            </div>
+            <div id="rest-countdown">00:00</div>
+            <button onclick="workoutManager.stopRest()" class="btn-primary">¡SEGUIR!</button>
         </div>
     </div>
 
@@ -196,5 +223,4 @@
 
     <script type="module" src="app.js"></script>
 </body>
-
 </html>
