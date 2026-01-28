@@ -17,25 +17,32 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], allClients: [], sounds: { beep: document.getElementById('timer-beep') }, wakeLock: null, currentClientId: null };
+const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
 
 const app = {
     init: () => {
+        // Seguro para el logo por si Firebase tarda
+        setTimeout(() => {
+            const spl = document.getElementById('splash-screen');
+            if(spl) spl.style.display = 'none';
+        }, 4000);
+
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
                 try {
                     const docSnap = await getDoc(doc(db, "users", user.uid));
-                    if (docSnap.exists()) {
+                    if(docSnap.exists()) {
                         state.profile = docSnap.data();
-                        if (!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
-                        if (!state.profile.records) state.profile.records = {};
+                        if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
+                        if(!state.profile.records) state.profile.records = {};
                         app.handleLoginSuccess();
                     } else { signOut(auth); }
                 } catch(e) { console.error(e); }
             } else {
                 app.navTo('login');
-                setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500);
+                const spl = document.getElementById('splash-screen');
+                if(spl) spl.style.display = 'none';
             }
         });
         document.getElementById('logout-btn').onclick = () => signOut(auth);
@@ -55,11 +62,12 @@ const app = {
         } catch(e) { alert(e.message); }
     },
     handleLoginSuccess: () => {
-        const btn = document.getElementById('admin-btn');
-        if(state.profile.role === 'admin' || state.profile.role === 'coach') { btn.classList.remove('hidden'); admin.loadUsers(); } else { btn.classList.add('hidden'); }
+        const adminBtn = document.getElementById('admin-btn');
+        if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.loadUsers(); } else { adminBtn.classList.add('hidden'); }
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
-        document.getElementById('splash-screen').classList.add('hidden');
+        const spl = document.getElementById('splash-screen');
+        if(spl) spl.style.display = 'none';
     },
     navTo: (viewId) => {
         document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
@@ -73,7 +81,7 @@ const app = {
     },
     showToast: (msg, type='normal') => {
         const div = document.createElement('div'); div.className = `toast ${type}`;
-        div.innerHTML = `<i>${type==='gold'?'🏆':'✅'}</i> ${msg}`;
+        div.innerHTML = `<span style="font-size:20px; margin-right:10px">${type==='gold'?'🏆':'✅'}</span> ${msg}`;
         document.getElementById('toast-container').appendChild(div); setTimeout(()=>div.remove(), 3000);
     }
 };
@@ -99,11 +107,11 @@ const admin = {
     toggleApproval: async (uid, st) => { await updateDoc(doc(db, "users", uid), { approved: st }); admin.loadUsers(); },
     viewClient: async (uid) => {
         state.currentClientId = uid;
-        const user = state.allClients.find(c => c.id === uid); if(!user) return;
+        const user = state.allClients.find(c => c.id === uid);
+        if(!user) return;
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
-        
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
@@ -112,8 +120,8 @@ const admin = {
         
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
-        const snapshot = await getDocs(q);
-        const workouts = []; snapshot.forEach(d => workouts.push(d.data()));
+        const snap = await getDocs(q);
+        const workouts = []; snap.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
         
         hList.innerHTML = ''; const mCounts = {};
@@ -126,7 +134,6 @@ const admin = {
             div.onclick = () => profile.showWorkoutDetails(w);
             hList.appendChild(div);
         });
-        
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
             const lineData = [...(user.statsHistory || [])].sort((a,b) => a.date.seconds - b.date.seconds);
@@ -142,7 +149,6 @@ const admin = {
         const snap = await getDocs(q); div.innerHTML = '';
         if(snap.empty) div.innerHTML = '<p>Sin rutinas</p>';
         snap.forEach(d => div.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between"><span>${d.data().name}</span><i class="material-icons-round" style="color:red; cursor:pointer" onclick="window.admin.deleteRoutine('${d.id}')">delete</i></div>`);
-        
         const sel = document.getElementById('client-clone-select'); sel.innerHTML = '<option disabled selected>Elegir Base...</option>';
         const all = await getDocs(collection(db, "routines")); const seen = new Set();
         all.forEach(d => { if(d.data().assignedTo !== uid && !seen.has(d.data().name)) { seen.add(d.data().name); sel.innerHTML += `<option value="${d.id}">${d.data().name}</option>`; } });
@@ -198,7 +204,14 @@ const dashboard = {
         if(snap.empty) div.innerHTML = '<p style="text-align:center">No tienes rutinas asignadas.</p>';
         snap.forEach(d => {
             const r = d.data();
-            div.innerHTML += `<div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p></div>`;
+            div.innerHTML += `
+            <div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer">
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                    <h3 style="margin:0">${r.name}</h3>
+                    <div style="background:var(--neon-green); color:black; padding:5px 15px; border-radius:4px; font-weight:bold; font-family:'Russo One'">INICIAR</div>
+                </div>
+                <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
+            </div>`;
         });
     },
     calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
@@ -228,7 +241,7 @@ const workoutManager = {
             const last = workouts.find(w => w.data.name === rname);
             if(last) state.lastWorkoutData = last.data;
 
-            state.activeWorkout = { name: rname, start: Date.now(), exercises: data.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) })) };
+            state.activeWorkout = { name: rname, start: Date.now(), exercises: routineData.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) })) };
             localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout));
             try { if(navigator.wakeLock) state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
             workoutManager.uiInit();
@@ -314,8 +327,21 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         profile.renderCharts(); profile.loadRadar();
-        if(!document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
+        // Reset tabs
+        profile.switchTab('stats');
     },
+    
+    // FIX PESTAÑAS IPHONE
+    switchTab: (tab) => {
+        ['stats', 'history', 'config'].forEach(t => {
+            document.getElementById(`tab-${t}`).classList.add('hidden');
+            document.getElementById(`tab-btn-${t}`).classList.remove('active');
+        });
+        document.getElementById(`tab-${tab}`).classList.remove('hidden');
+        document.getElementById(`tab-btn-${tab}`).classList.add('active');
+        if(tab === 'history') profile.loadHistory();
+    },
+
     loadRadar: async () => {
         const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
         const snap = await getDocs(q);
@@ -364,7 +390,7 @@ const chartHelpers = {
     renderLine: (id, data, field, color) => {
         const ctx = document.getElementById(id); if(!ctx) return;
         const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>new Date(d.date.seconds*1000).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#222' } } } } });
+        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>new Date(d.date.seconds*1000).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
     },
     renderRadar: (id, counts) => {
         const ctx = document.getElementById(id); if(!ctx) return;
