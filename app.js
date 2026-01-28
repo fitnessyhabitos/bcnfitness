@@ -50,6 +50,7 @@ const app = {
             if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.refreshAll(); }
             else { adminBtn.classList.add('hidden'); }
         }
+        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         app.hideSplash();
@@ -79,18 +80,13 @@ const app = {
 const admin = {
     refreshAll: () => { admin.renderExerciseSelect(); admin.renderUsers(); admin.renderExistingRoutines(); },
     
+    // CARGA DE USUARIOS ROBUSTA (Sin cálculos complejos en la query)
     renderUsers: async () => {
         const list = document.getElementById('admin-users-list');
         const select = document.getElementById('assign-client-select');
         if(!list) return;
         list.innerHTML = 'Cargando...';
         try {
-            // Cargar rutinas primero para contar
-            const routinesSnap = await getDocs(collection(db, "routines"));
-            const routineCounts = {};
-            routinesSnap.forEach(doc => { const r = doc.data(); if(r.assignedTo) routineCounts[r.assignedTo] = (routineCounts[r.assignedTo] || 0) + 1; });
-
-            // Cargar usuarios
             const snapshot = await getDocs(collection(db, "users"));
             list.innerHTML = ''; state.allClients = [];
             select.innerHTML = '<option value="" disabled selected>Selecciona Cliente</option>';
@@ -98,12 +94,11 @@ const admin = {
             snapshot.forEach(docSnap => {
                 const u = docSnap.data(); state.allClients.push({ id: docSnap.id, ...u });
                 const avatar = u.photoURL || 'assets/placeholder-body.png';
-                const rCount = routineCounts[docSnap.id] || 0;
                 
                 list.innerHTML += `
                     <div class="user-row">
                         <img src="${avatar}" class="user-avatar-small" onclick="admin.viewClient('${docSnap.id}')">
-                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name} <span class="routine-count-badge">🏋️ ${rCount}</span></h5><span>${u.clientType||'Cliente'}</span></div>
+                        <div class="user-info" onclick="admin.viewClient('${docSnap.id}')"><h5>${u.name}</h5><span>${u.clientType||'Cliente'}</span></div>
                         <div class="user-actions">
                             ${!u.approved ? `<button class="action-btn btn-green" onclick="admin.toggleApproval('${docSnap.id}', true)">APROBAR</button>` : ''}
                             <button class="action-btn btn-delete" onclick="admin.deleteUser('${docSnap.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button>
@@ -111,7 +106,7 @@ const admin = {
                     </div>`;
                 select.innerHTML += `<option value="${docSnap.id}">${u.name}</option>`;
             });
-        } catch (e) { console.error(e); list.innerHTML = 'Error cargando lista'; }
+        } catch (e) { console.error(e); list.innerHTML = 'Error cargando usuarios.'; }
     },
     
     deleteUser: async (uid, name) => { if(!confirm(`¿Eliminar a ${name}?`)) return; if(!confirm("⚠️ Acción irreversible. ¿Continuar?")) return; try { await deleteDoc(doc(db, "users", uid)); alert("Eliminado"); admin.renderUsers(); } catch(e) { alert("Error"); } },
@@ -127,7 +122,6 @@ const admin = {
         const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
         document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--'; document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--'; document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
         
-        // Historial
         const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(10));
@@ -141,7 +135,7 @@ const admin = {
                 item.onclick = () => profile.showWorkoutDetails(w); historyContainer.appendChild(item);
             });
             chartHelpers.renderRadar('clientRadarChart', muscleCounts);
-        } catch(e) { historyContainer.innerHTML = 'Falta índice (ver consola)'; }
+        } catch(e) { console.log(e); historyContainer.innerHTML = 'Falta índice (ver consola)'; }
         
         chartHelpers.renderLine('clientWeightChart', user.statsHistory||[], 'weight', '#39ff14');
         chartHelpers.renderLine('clientFatChart', user.statsHistory||[], 'fat', '#ff3b30');
@@ -161,7 +155,14 @@ const admin = {
             
             const select = document.getElementById('client-clone-select'); select.innerHTML = '<option value="" disabled selected>Seleccionar base...</option>';
             const allRoutines = await getDocs(collection(db, "routines"));
-            allRoutines.forEach(doc => { if(doc.data().assignedTo !== userId) select.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`; });
+            const uniqueNames = new Set();
+            allRoutines.forEach(doc => { 
+                const d = doc.data();
+                if(d.assignedTo !== userId && !uniqueNames.has(d.name)) {
+                    uniqueNames.add(d.name);
+                    select.innerHTML += `<option value="${doc.id}">${d.name}</option>`; 
+                }
+            });
         } catch(e) { console.log(e); }
     },
 
@@ -171,29 +172,67 @@ const admin = {
         admin.cloneRoutine(routineId, state.currentClientId);
     },
 
+    // AGRUPAR RUTINAS POR NOMBRE PARA NO MOSTRAR REPETIDOS
     renderExistingRoutines: async () => {
         const container = document.getElementById('admin-routines-management'); if(!container) return; container.innerHTML = 'Cargando...';
         try {
-            const q = query(collection(db, "routines"), orderBy("createdAt", "desc"));
-            const snapshot = await getDocs(q); container.innerHTML = '';
-            if(snapshot.empty) { container.innerHTML = '<p>No hay rutinas.</p>'; return; }
-            snapshot.forEach(docSnap => {
-                const r = docSnap.data();
+            const snapshot = await getDocs(collection(db, "routines"));
+            container.innerHTML = '';
+            
+            const groupedRoutines = {};
+            snapshot.forEach(doc => {
+                const r = doc.data();
+                if(!groupedRoutines[r.name]) {
+                    groupedRoutines[r.name] = { id: doc.id, ...r }; // Guardar la primera ocurrencia
+                }
+            });
+
+            if(Object.keys(groupedRoutines).length === 0) { container.innerHTML = '<p>No hay rutinas.</p>'; return; }
+
+            Object.values(groupedRoutines).forEach(r => {
                 let cloneOptions = `<option value="" disabled selected>Clonar a...</option>`;
                 state.allClients.forEach(c => { cloneOptions += `<option value="${c.id}">Clonar a ${c.name}</option>`; });
-                const assignedName = state.allClients.find(c => c.id === r.assignedTo)?.name || 'Sin asignar';
-                container.innerHTML += `<div class="exercise-card" style="border-left: 4px solid #00d4ff"><div style="display:flex; justify-content:space-between; align-items:center"><h4 style="margin:0">${r.name}</h4><button class="icon-btn" onclick="admin.deleteRoutine('${docSnap.id}')" style="color:#ff3b30"><i class="material-icons-round" style="font-size:20px">delete</i></button></div><div style="margin-top:5px; font-size:12px; color:#aaa">Asignado a: <strong style="color:white">${assignedName}</strong></div><div style="margin-top:10px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.cloneRoutine('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:#00d4ff">${cloneOptions}</select></div></div>`;
+                
+                // Div para clicar y ver detalles
+                container.innerHTML += `
+                    <div class="exercise-card" style="border-left: 4px solid #00d4ff">
+                        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="admin.showRoutineDetails('${r.id}')">
+                            <h4 style="margin:0">${r.name}</h4>
+                            <i class="material-icons-round" style="color:#666">info</i>
+                        </div>
+                        <div style="margin-top:5px; font-size:12px; color:#aaa">${r.exercises.length} Ejercicios</div>
+                        <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px">
+                            <select onchange="admin.cloneRoutine('${r.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%; color:#00d4ff">
+                                ${cloneOptions}
+                            </select>
+                        </div>
+                    </div>`;
             });
-        } catch(e) { container.innerHTML = 'Error'; }
+        } catch(e) { console.log(e); container.innerHTML = 'Error'; }
+    },
+    
+    // MOSTRAR DETALLES DE RUTINA (REUSA EL MODAL DE DETALLE)
+    showRoutineDetails: async (routineId) => {
+        const docSnap = await getDoc(doc(db, "routines", routineId));
+        const r = docSnap.data();
+        const modal = document.getElementById('workout-detail-modal');
+        const content = document.getElementById('wd-content');
+        document.getElementById('wd-title').innerText = r.name;
+        
+        let html = '';
+        r.exercises.forEach(ex => {
+            html += `<h4 style="margin:10px 0 5px; color:var(--neon-green)">${ex.n}</h4><div style="font-size:12px; color:#888">${ex.defaultSets.length} Series predefinidas</div>`;
+        });
+        content.innerHTML = html;
+        modal.classList.remove('hidden');
     },
     
     cloneRoutine: async (routineId, targetUserId) => {
         try {
             const docSnap = await getDoc(doc(db, "routines", routineId)); const data = docSnap.data();
             await addDoc(collection(db, "routines"), { ...data, assignedTo: targetUserId, createdAt: new Date(), name: data.name });
-            alert("Clonada"); 
+            alert("Rutina clonada exitosamente"); 
             if(document.getElementById('view-client-detail').classList.contains('active')) admin.renderClientRoutines(targetUserId);
-            else admin.renderExistingRoutines();
         } catch(e) { alert("Error al clonar"); }
     },
 
@@ -204,7 +243,7 @@ const admin = {
     renderPreview: () => { const container = document.getElementById('admin-routine-preview'); if(!container) return; container.innerHTML = state.newRoutine.map((ex, exIdx) => { const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png'; let setsHtml = ex.defaultSets.map((s, sIdx) => `<input type="number" class="mini-input" value="${s.reps}" onchange="admin.updateRoutineSet(${exIdx}, ${sIdx}, this.value)">`).join(''); return `<div class="routine-edit-row"><div class="routine-edit-header"><img src="${imgSrc}" class="routine-mini-img"><span style="font-size:14px">${ex.n}</span><button class="btn-text" style="width:auto; margin:0 0 0 auto; color:#ff3b30" onclick="admin.removeExercise(${exIdx})">x</button></div><div class="routine-sets-inputs">${setsHtml}</div></div>`; }).join(''); },
     updateRoutineSet: (exIdx, sIdx, val) => { state.newRoutine[exIdx].defaultSets[sIdx].reps = parseInt(val); },
     removeExercise: (idx) => { state.newRoutine.splice(idx, 1); admin.renderPreview(); },
-    saveRoutine: async () => { const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value; if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos"); try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); admin.renderUsers(); } catch(e) { alert("Error"); } }
+    saveRoutine: async () => { const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value; if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos"); try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); } catch(e) { alert("Error"); } }
 };
 
 const dashboard = {
@@ -295,10 +334,23 @@ const workoutManager = {
     
     toggleSet: (exIdx, sIdx) => {
         const set = state.activeWorkout.exercises[exIdx].sets[sIdx]; set.done = !set.done;
+        
         if(set.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
             const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime);
-            // Calculo RM y Toasts... (Se mantiene del V7)
+            // 1RM Logic
+            if(set.kg && set.reps) {
+                const kg = parseFloat(set.kg); const reps = parseInt(set.reps);
+                const oneRM = Math.round(kg * (1 + reps/30)); const exName = state.activeWorkout.exercises[exIdx].n;
+                if(!state.profile.records) state.profile.records = {};
+                const oldRecord = state.profile.records[exName] || 0;
+                if(oneRM > oldRecord) {
+                    state.profile.records[exName] = oneRM;
+                    updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
+                    app.showToast(`¡NUEVO RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
+                    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                }
+            }
         }
         workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
     },
