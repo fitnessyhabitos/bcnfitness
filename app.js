@@ -179,45 +179,98 @@ const admin = {
     },
     toggleApproval: async (uid, status) => { await updateDoc(doc(db, "users", uid), { approved: status }); admin.renderUsers(); },
     
-    // ... (Mantener viewClient, renderClientChart, renderExistingRoutines, etc. del código V4)
-    // Para ahorrar espacio, asumo que copias las funciones del anterior mensaje V4. 
-    // SOLO PONGO LAS NUEVAS/MODIFICADAS ABAJO.
-    // ...
-    // ...
-    // PARA EL CODIGO COMPLETO FINAL USA EL DEL MENSAJE V4 EN ESTA PARTE ADMIN, NO HA CAMBIADO SIGNIFICATIVAMENTE EXCEPTO LO ARRIBA
+    viewClient: async (userId) => {
+        let user = state.allClients.find(c => c.id === userId);
+        if(!user) { const docSnap = await getDoc(doc(db, "users", userId)); user = { id: docSnap.id, ...docSnap.data() }; }
+        document.getElementById('client-detail-name').innerText = user.name;
+        document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
+        const stats = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length - 1] : null;
+        document.getElementById('cd-weight').innerText = stats ? stats.weight + 'kg' : '--';
+        document.getElementById('cd-fat').innerText = stats ? stats.fat + '%' : '--';
+        document.getElementById('cd-muscle').innerText = stats ? stats.muscle + '%' : '--';
+        
+        // Historial Cliente
+        const historyContainer = document.getElementById('client-detail-history'); historyContainer.innerHTML = 'Cargando...';
+        try {
+            const q = query(collection(db, "workouts"), where("userId", "==", userId), orderBy("date", "desc"), limit(10));
+            const snapshot = await getDocs(q);
+            historyContainer.innerHTML = ''; const muscleCounts = {};
+            if(snapshot.empty) historyContainer.innerHTML = '<p style="text-align:center">Sin entrenos.</p>';
+            snapshot.forEach(doc => {
+                const w = doc.data(); const d = w.date.seconds ? new Date(w.date.seconds*1000) : new Date(w.date);
+                if(w.data && w.data.exercises) { w.data.exercises.forEach(ex => { if(!muscleCounts[ex.m]) muscleCounts[ex.m]=0; muscleCounts[ex.m]+= (ex.sets ? ex.sets.length : 0); }); }
+                const item = document.createElement('div'); item.className = 'history-item';
+                item.innerHTML = `<div class="history-date">${d.toLocaleDateString()}</div><div class="history-title">${w.data.name}</div><div class="history-meta"><span class="tag">${w.rpe}</span></div>`;
+                item.onclick = () => profile.showWorkoutDetails(w); historyContainer.appendChild(item);
+            });
+            chartHelpers.renderRadar('clientRadarChart', muscleCounts);
+        } catch(e) { console.log(e); historyContainer.innerHTML = 'Falta índice (ver consola)'; }
+        chartHelpers.renderLine('clientWeightChart', user.statsHistory||[], 'weight', '#39ff14');
+        app.navTo('client-detail');
+    },
+
+    renderExistingRoutines: async () => {
+        const container = document.getElementById('admin-routines-management'); if(!container) return; container.innerHTML = 'Cargando...';
+        try {
+            const q = query(collection(db, "routines"), orderBy("createdAt", "desc"));
+            const snapshot = await getDocs(q); container.innerHTML = '';
+            if(snapshot.empty) { container.innerHTML = '<p>No hay rutinas.</p>'; return; }
+            snapshot.forEach(docSnap => {
+                const r = docSnap.data();
+                let options = `<option value="" disabled>Reasignar...</option>`;
+                state.allClients.forEach(c => { options += `<option value="${c.id}" ${r.assignedTo===c.id?'selected':''}>${c.name}</option>`; });
+                const assignedName = state.allClients.find(c => c.id === r.assignedTo)?.name || 'Sin asignar';
+                container.innerHTML += `
+                    <div class="exercise-card" style="border-left: 4px solid #00d4ff">
+                        <div style="display:flex; justify-content:space-between; align-items:center"><h4 style="margin:0">${r.name}</h4><button class="icon-btn" onclick="admin.deleteRoutine('${docSnap.id}')" style="color:#ff3b30"><i class="material-icons-round" style="font-size:20px">delete</i></button></div>
+                        <div style="margin-top:5px; font-size:12px; color:#aaa">Asignado a: <strong style="color:white">${assignedName}</strong></div>
+                        <div style="margin-top:10px; background:#222; padding:5px; border-radius:5px"><select onchange="admin.updateRoutineAssignment('${docSnap.id}', this.value)" style="margin:0; padding:5px; font-size:12px; height:auto; background:transparent; border:none; width:100%">${options}</select></div>
+                    </div>`;
+            });
+        } catch(e) { container.innerHTML = 'Error'; }
+    },
+    updateRoutineAssignment: async (routineId, newAssignee) => { try { await updateDoc(doc(db, "routines", routineId), { assignedTo: newAssignee }); alert("Reasignado"); admin.renderExistingRoutines(); } catch(e) { alert("Error"); } },
+    deleteRoutine: async (routineId) => { if(!confirm("¿Borrar rutina?")) return; try { await deleteDoc(doc(db, "routines", routineId)); admin.renderExistingRoutines(); } catch(e) { alert("Error"); } },
+    
+    renderExerciseSelect: () => {
+        const select = document.getElementById('admin-exercise-select'); if(!select) return; select.innerHTML = '<option value="">Selecciona ejercicio...</option>';
+        EXERCISES.forEach((ex, idx) => { select.innerHTML += `<option value="${idx}">${ex.n}</option>`; }); state.newRoutine = []; admin.renderPreview();
+    },
+    filterExercises: (term) => {
+        const select = document.getElementById('admin-exercise-select'); const lowerTerm = term.toLowerCase(); select.innerHTML = '';
+        EXERCISES.forEach((ex, idx) => { if(ex.n.toLowerCase().includes(lowerTerm)) select.innerHTML += `<option value="${idx}">${ex.n}</option>`; });
+    },
+    addExerciseToRoutine: () => {
+        const idx = document.getElementById('admin-exercise-select').value; if(!idx) return;
+        const exData = EXERCISES[idx]; state.newRoutine.push({ ...exData, defaultSets: [ {reps: 20}, {reps: 16}, {reps: 16}, {reps: 16}, {reps: 16} ] }); admin.renderPreview();
+    },
+    renderPreview: () => {
+        const container = document.getElementById('admin-routine-preview'); if(!container) return;
+        container.innerHTML = state.newRoutine.map((ex, exIdx) => {
+            const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
+            let setsHtml = ex.defaultSets.map((s, sIdx) => `<input type="number" class="mini-input" value="${s.reps}" onchange="admin.updateRoutineSet(${exIdx}, ${sIdx}, this.value)">`).join('');
+            return `<div class="routine-edit-row"><div class="routine-edit-header"><img src="${imgSrc}" class="routine-mini-img"><span style="font-size:14px">${ex.n}</span><button class="btn-text" style="width:auto; margin:0 0 0 auto; color:#ff3b30" onclick="admin.removeExercise(${exIdx})">x</button></div><div class="routine-sets-inputs">${setsHtml}</div></div>`;
+        }).join('');
+    },
+    updateRoutineSet: (exIdx, sIdx, val) => { state.newRoutine[exIdx].defaultSets[sIdx].reps = parseInt(val); },
+    removeExercise: (idx) => { state.newRoutine.splice(idx, 1); admin.renderPreview(); },
+    saveRoutine: async () => {
+        const name = document.getElementById('new-routine-name').value; const assignedTo = document.getElementById('assign-client-select').value;
+        if(!name || state.newRoutine.length === 0 || !assignedTo) return alert("Faltan datos");
+        try { await addDoc(collection(db, "routines"), { name: name, exercises: state.newRoutine, assignedTo: assignedTo, createdBy: state.user.uid, createdAt: new Date() }); alert("Guardada"); state.newRoutine = []; document.getElementById('new-routine-name').value = ''; admin.renderPreview(); admin.renderExistingRoutines(); } catch(e) { alert("Error"); }
+    }
 };
-
-// ** AÑADIR ESTO SI NO LO TIENES DEL V4 **
-admin.viewClient = async (userId) => { /* ... usar código V4 ... */ app.navTo('client-detail'); };
-admin.renderExistingRoutines = async () => { /* ... usar código V4 ... */ };
-admin.saveRoutine = async () => { /* ... usar código V4 ... */ };
-admin.addExerciseToRoutine = () => { /* ... usar código V4 ... */ };
-admin.renderExerciseSelect = () => { /* ... usar código V4 ... */ };
-admin.updateRoutineSet = (exIdx, sIdx, val) => { state.newRoutine[exIdx].defaultSets[sIdx].reps = parseInt(val); };
-admin.removeExercise = (idx) => { state.newRoutine.splice(idx, 1); admin.renderPreview(); };
-admin.renderPreview = () => { /* ... usar código V4 ... */ };
-admin.filterExercises = (term) => { /* ... usar código V4 ... */ };
-admin.deleteRoutine = async (id) => { /* ... */ };
-admin.updateRoutineAssignment = async (id, val) => { /* ... */ };
-
 
 const dashboard = {
     render: async () => {
-        const container = document.getElementById('routines-list');
-        if(!container) return; container.innerHTML = 'Cargando...';
+        const container = document.getElementById('routines-list'); if(!container) return; container.innerHTML = 'Cargando...';
         try {
-            const q = query(collection(db, "routines")); const snapshot = await getDocs(q);
-            container.innerHTML = ''; let count = 0;
+            const q = query(collection(db, "routines")); const snapshot = await getDocs(q); container.innerHTML = ''; let count = 0;
             snapshot.forEach(doc => {
                 const r = doc.data();
                 if(r.assignedTo === state.user.uid) {
                     count++;
-                    container.innerHTML += `
-                        <div class="exercise-card">
-                            <div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">fitness_center</i></div>
-                            <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
-                            <button class="btn-primary" style="margin-top:10px" onclick="workoutManager.start('${doc.id}', '${r.name}')">INICIAR</button>
-                        </div>`;
+                    container.innerHTML += `<div class="exercise-card"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">fitness_center</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p><button class="btn-primary" style="margin-top:10px" onclick="workoutManager.start('${doc.id}', '${r.name}')">INICIAR</button></div>`;
                 }
             });
             if(count === 0) container.innerHTML = '<p style="text-align:center">Sin rutinas.</p>';
@@ -228,87 +281,40 @@ const dashboard = {
 const workoutManager = {
     start: async (routineId, routineName) => {
         try {
-            // 1. Cargar Rutina Actual
-            const docRef = await getDoc(doc(db, "routines", routineId));
-            const routineData = docRef.data();
-
-            // 2. Buscar último entreno de ESTA misma rutina para comparar
+            const docRef = await getDoc(doc(db, "routines", routineId)); const routineData = docRef.data();
+            // Buscar historial previo para mostrar datos serie a serie
             state.lastWorkoutData = null;
             try {
-                // Truco: Buscamos en los últimos 5 entrenos del usuario alguno que tenga el mismo nombre
                 const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), orderBy("date", "desc"), limit(5));
                 const snapshot = await getDocs(q);
-                snapshot.forEach(doc => {
-                    const w = doc.data();
-                    if(w.data.name === routineName && !state.lastWorkoutData) {
-                        state.lastWorkoutData = w.data;
-                    }
-                });
-            } catch(e) { console.log("No historial previo inmediato"); }
+                snapshot.forEach(doc => { const w = doc.data(); if(w.data.name === routineName && !state.lastWorkoutData) state.lastWorkoutData = w.data; });
+            } catch(e) {}
 
-            // 3. Iniciar
-            state.activeWorkout = {
-                name: routineName, startTime: Date.now(),
-                exercises: routineData.exercises.map(ex => ({ ...ex, sets: ex.defaultSets ? ex.defaultSets.map(s => ({...s, kg:'', done:false})) : [] }))
-            };
-            
-            // Activar Wake Lock
-            workoutManager.enableWakeLock();
-            
-            workoutManager.saveLocal(); workoutManager.uiInit();
-        } catch(e) { alert("Error al iniciar"); }
+            state.activeWorkout = { name: routineName, startTime: Date.now(), exercises: routineData.exercises.map(ex => ({ ...ex, sets: ex.defaultSets ? ex.defaultSets.map(s => ({...s, kg:'', done:false})) : [] })) };
+            workoutManager.enableWakeLock(); workoutManager.saveLocal(); workoutManager.uiInit();
+        } catch(e) { alert("Error"); }
     },
-
-    enableWakeLock: async () => {
-        try {
-            state.wakeLock = await navigator.wakeLock.request('screen');
-        } catch (err) { console.log("Wake Lock no soportado/permitido"); }
-    },
-
+    enableWakeLock: async () => { try { state.wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} },
     resumeWorkout: (data) => { state.activeWorkout = data; workoutManager.uiInit(); workoutManager.enableWakeLock(); },
     uiInit: () => { app.navTo('workout'); workoutManager.renderExercises(); workoutManager.startGlobalTimer(); },
-    cancelWorkout: () => { 
-        if(confirm("¿Cancelar?")) { 
-            localStorage.removeItem(`bcn_workout_${state.user.uid}`); 
-            state.activeWorkout = null; 
-            if(state.wakeLock) state.wakeLock.release();
-            app.navTo('dashboard'); 
-        } 
-    },
-    
+    cancelWorkout: () => { if(confirm("¿Cancelar?")) { localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); app.navTo('dashboard'); } },
     openFinishModal: () => document.getElementById('finish-modal').classList.remove('hidden'),
     
     confirmFinish: async (rpeLabel) => {
         document.getElementById('finish-modal').classList.add('hidden');
         try {
             const notes = document.getElementById('final-notes').value;
-            await addDoc(collection(db, "workouts"), {
-                userId: state.user.uid, userName: state.profile.name, date: new Date(),
-                data: state.activeWorkout, rpe: rpeLabel, notes: notes
-            });
-            // Update lifts logic... (igual que V4)
-            localStorage.removeItem(`bcn_workout_${state.user.uid}`);
-            state.activeWorkout = null; 
-            if(state.wakeLock) state.wakeLock.release();
-            app.navTo('dashboard'); alert("¡Completado!");
+            await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpeLabel, notes: notes });
+            // PRs Update logic (same as V4)
+            localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release(); app.navTo('dashboard'); alert("¡Completado!");
         } catch(e) { alert("Error al guardar"); }
     },
 
     renderExercises: () => {
-        const container = document.getElementById('active-exercises-container');
-        if(!container) return; container.innerHTML = '';
+        const container = document.getElementById('active-exercises-container'); if(!container) return; container.innerHTML = '';
         state.activeWorkout.exercises.forEach((ex, exIdx) => {
             const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
-            container.innerHTML += `
-                <div class="exercise-card">
-                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px">
-                        <img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'">
-                        <div><h3 style="font-size:16px; margin:0">${ex.n}</h3><small style="color:var(--neon-green)">${ex.m}</small></div>
-                        ${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}
-                    </div>
-                    <div id="sets-list-${exIdx}"></div>
-                    <button class="btn-text" style="width:100%; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button>
-                </div>`;
+            container.innerHTML += `<div class="exercise-card"><div style="display:flex; align-items:center; gap:10px; margin-bottom:10px"><img src="${imgSrc}" width="40" style="border-radius:4px; background:#333" onerror="this.src='assets/placeholder-body.png'"><div><h3 style="font-size:16px; margin:0">${ex.n}</h3><small style="color:var(--neon-green)">${ex.m}</small></div>${ex.v ? `<a href="${ex.v}" target="_blank" style="margin-left:auto; color:white"><i class="material-icons-round">videocam</i></a>` : ''}</div><div id="sets-list-${exIdx}"></div><button class="btn-text" style="width:100%; border:1px dashed #333" onclick="workoutManager.addSet(${exIdx})">+ AÑADIR SERIE</button></div>`;
             workoutManager.renderSets(exIdx);
         });
     },
@@ -318,25 +324,13 @@ const workoutManager = {
         const ex = state.activeWorkout.exercises[exIdx];
         
         list.innerHTML = ex.sets.map((set, sIdx) => {
-            // LÓGICA PREVIO SERIE A SERIE
+            // Historial serie a serie
             let prevText = '--';
-            if(state.lastWorkoutData && state.lastWorkoutData.exercises[exIdx]) {
-                const prevEx = state.lastWorkoutData.exercises[exIdx];
-                if(prevEx.sets[sIdx]) {
-                    prevText = `${prevEx.sets[sIdx].reps}x${prevEx.sets[sIdx].kg}kg`;
-                }
+            if(state.lastWorkoutData && state.lastWorkoutData.exercises[exIdx] && state.lastWorkoutData.exercises[exIdx].sets[sIdx]) {
+                const p = state.lastWorkoutData.exercises[exIdx].sets[sIdx];
+                prevText = `${p.reps}x${p.kg}kg`;
             }
-
-            return `
-            <div class="set-row ${set.done ? 'set-completed' : ''}">
-                <span style="color:#555">#${sIdx+1}</span>
-                <span style="font-size:10px; color:#555; text-align:center">${prevText}</span>
-                <input type="number" placeholder="reps" value="${set.reps || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)">
-                <input type="number" placeholder="kg" value="${set.kg || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)">
-                <div class="check-box ${set.done ? 'checked' : ''}" onclick="workoutManager.toggleSet(${exIdx}, ${sIdx})">
-                    ${set.done ? '<i class="material-icons-round" style="font-size:16px; color:black">check</i>' : ''}
-                </div>
-            </div>`;
+            return `<div class="set-row ${set.done ? 'set-completed' : ''}"><span style="color:#555">#${sIdx+1}</span><span style="font-size:10px; color:#555; text-align:center">${prevText}</span><input type="number" placeholder="reps" value="${set.reps || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'reps', this.value)"><input type="number" placeholder="kg" value="${set.kg || ''}" onchange="workoutManager.updateSet(${exIdx},${sIdx}, 'kg', this.value)"><div class="check-box ${set.done ? 'checked' : ''}" onclick="workoutManager.toggleSet(${exIdx}, ${sIdx})">${set.done ? '<i class="material-icons-round" style="font-size:16px; color:black">check</i>' : ''}</div></div>`;
         }).join('');
     },
 
@@ -344,46 +338,28 @@ const workoutManager = {
     updateSet: (exIdx, sIdx, field, val) => { state.activeWorkout.exercises[exIdx].sets[sIdx][field] = val; workoutManager.saveLocal(); },
     
     toggleSet: (exIdx, sIdx) => {
-        const set = state.activeWorkout.exercises[exIdx].sets[sIdx];
-        set.done = !set.done;
-        if(set.done) {
-            if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
-            const restTime = state.profile.settings?.restTime || 60;
-            workoutManager.startRest(restTime);
-        }
+        const set = state.activeWorkout.exercises[exIdx].sets[sIdx]; set.done = !set.done;
+        if(set.done) { if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); const restTime = state.profile.settings?.restTime || 60; workoutManager.startRest(restTime); }
         workoutManager.saveLocal(); workoutManager.renderSets(exIdx);
     },
 
     startRest: (sec) => {
         const modal = document.getElementById('rest-modal'); modal.classList.remove('hidden');
-        // TIMER REAL (Date.now)
         const endTime = Date.now() + sec * 1000;
-        
         if(state.restTimer) clearInterval(state.restTimer);
         
         const updateDisplay = () => {
-            const now = Date.now();
-            const remaining = Math.ceil((endTime - now) / 1000);
-            
+            const now = Date.now(); const remaining = Math.ceil((endTime - now) / 1000);
             if(remaining <= 0) {
                 document.getElementById('rest-countdown').innerText = "00:00";
                 if(state.sounds.beep) state.sounds.beep.play().catch(()=>{}); 
                 if(navigator.vibrate) navigator.vibrate([200,100,200]);
-                
-                // Notificación nativa si pantalla apagada
                 if (document.hidden) profile.sendNotification("¡Descanso Terminado!", "Vamos a por la siguiente serie.");
-                
-                workoutManager.stopRest();
-                return;
+                workoutManager.stopRest(); return;
             }
-            
-            const m = Math.floor(remaining/60).toString().padStart(2,'0');
-            const s = (remaining%60).toString().padStart(2,'0');
-            document.getElementById('rest-countdown').innerText = `${m}:${s}`;
+            document.getElementById('rest-countdown').innerText = `${Math.floor(remaining/60).toString().padStart(2,'0')}:${(remaining%60).toString().padStart(2,'0')}`;
         };
-
-        updateDisplay();
-        state.restTimer = setInterval(updateDisplay, 1000);
+        updateDisplay(); state.restTimer = setInterval(updateDisplay, 1000);
     },
 
     stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
@@ -402,116 +378,128 @@ const profile = {
     render: () => {
         if(!state.profile) return;
         document.getElementById('profile-name').innerText = state.profile.name;
-        const imgEl = document.getElementById('profile-img');
-        if(state.profile.photoURL) imgEl.src = state.profile.photoURL;
+        const imgEl = document.getElementById('profile-img'); if(state.profile.photoURL) imgEl.src = state.profile.photoURL;
         document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
-        
-        profile.renderCharts();
-        profile.calculateGlobalStats(); // CALCULAR GLOBALES
+        profile.renderCharts(); profile.calculateGlobalStats();
     },
 
-    // CALCULAR ESTADÍSTICAS GLOBALES
     calculateGlobalStats: async () => {
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
             const snapshot = await getDocs(q);
-            
-            let totalTonnage = 0;
-            let totalSets = 0;
-            let totalReps = 0;
-            let totalWorkouts = snapshot.size;
-
+            let totalTonnage = 0, totalSets = 0, totalReps = 0, totalWorkouts = snapshot.size;
             snapshot.forEach(doc => {
                 const w = doc.data();
-                if(w.data && w.data.exercises) {
-                    w.data.exercises.forEach(ex => {
-                        ex.sets.forEach(s => {
-                            if(s.done && s.kg && s.reps) {
-                                totalSets++;
-                                totalReps += parseInt(s.reps);
-                                totalTonnage += (parseInt(s.kg) * parseInt(s.reps));
-                            }
-                        });
-                    });
-                }
+                if(w.data && w.data.exercises) { w.data.exercises.forEach(ex => { ex.sets.forEach(s => { if(s.done && s.kg && s.reps) { totalSets++; totalReps += parseInt(s.reps); totalTonnage += (parseInt(s.kg) * parseInt(s.reps)); } }); }); }
             });
-
-            // Convertir a Toneladas
-            const tonnageDisplay = (totalTonnage / 1000).toFixed(1) + 't';
-            
-            document.getElementById('stat-tonnage').innerText = tonnageDisplay;
-            document.getElementById('stat-sets').innerText = totalSets;
-            document.getElementById('stat-reps').innerText = totalReps;
-            document.getElementById('stat-workouts').innerText = totalWorkouts;
-
-        } catch(e) { console.log("Error stats globales", e); }
+            document.getElementById('stat-tonnage').innerText = (totalTonnage/1000).toFixed(1) + 't';
+            document.getElementById('stat-sets').innerText = totalSets; document.getElementById('stat-reps').innerText = totalReps; document.getElementById('stat-workouts').innerText = totalWorkouts;
+        } catch(e) {}
     },
 
-    // (El resto de funciones del perfil se mantienen iguales: charts, uploadPhoto, settings...)
-    switchTab: (tabName) => { /*... V4 Code ...*/ 
+    switchTab: (tabName) => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
         document.querySelector(`.tab-btn[onclick*="${tabName}"]`).classList.add('active');
         document.getElementById(`tab-${tabName}`).classList.remove('hidden');
         if(tabName === 'history') profile.loadHistory();
     },
-    loadHistory: async () => { /*... V4 Code (Recuerda que este maneja el error de índice) ...*/ 
-        // COPIA LA FUNCIÓN loadHistory DEL MENSAJE ANTERIOR QUE YA TENIA LA GESTIÓN DE ERROR
-        // Simplemente copio el esqueleto aquí para brevedad, pero usa la completa.
+
+    loadHistory: async () => {
         const list = document.getElementById('history-list'); list.innerHTML = 'Cargando...';
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid), orderBy("date", "desc"), limit(20));
             const snapshot = await getDocs(q);
             list.innerHTML = '';
+            const muscleCounts = {};
             if(snapshot.empty) return list.innerHTML = 'Sin historial.';
-            snapshot.forEach(doc => { /* ... */ }); // Usa lógica V4
+            snapshot.forEach(doc => {
+                const w = doc.data(); const d = w.date.seconds ? new Date(w.date.seconds*1000) : new Date(w.date);
+                if(w.data && w.data.exercises) { w.data.exercises.forEach(ex => { if(!muscleCounts[ex.m]) muscleCounts[ex.m]=0; muscleCounts[ex.m]+= (ex.sets ? ex.sets.length : 0); }); }
+                const item = document.createElement('div'); item.className = 'history-item';
+                item.innerHTML = `<div class="history-date">${d.toLocaleDateString()}</div><div class="history-title">${w.data.name}</div><div class="history-meta"><span class="tag">${w.rpe}</span></div>`;
+                item.onclick = () => profile.showWorkoutDetails(w); list.appendChild(item);
+            });
+            chartHelpers.renderRadar('radarChart', muscleCounts);
         } catch(e) { 
              list.innerHTML = `<div style="padding:15px; border:1px solid orange; color:orange">⚠️ Falta Índice (Click en link consola)</div>`; 
         }
     },
-    showWorkoutDetails: (w) => { /*... V4 Code ...*/ },
-    uploadPhoto: (input) => { /*... V4 Code ...*/ },
-    saveStats: async () => { /*... V4 Code ...*/ },
-    
-    renderCharts: () => {
-        const history = state.profile.statsHistory || [];
-        history.sort((a,b) => (a.date.seconds || a.date) - (b.date.seconds || b.date));
-        const labels = history.map(h => new Date(h.date.seconds ? h.date.seconds*1000 : h.date).toLocaleDateString());
-        
-        const createChart = (id, label, data, color) => {
-            const ctx = document.getElementById(id); if(!ctx) return;
-            if(ctx.chartInstance) ctx.chartInstance.destroy();
-            ctx.chartInstance = new Chart(ctx, {
-                type: 'line', data: { labels: labels, datasets: [{ label: label, data: data, borderColor: color, backgroundColor: color+'20', tension: 0.3, fill: true }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { color: '#222' } } } }
-            });
-        };
-        // 3 GRAFICAS
-        createChart('weightChart', 'Peso', history.map(h => h.weight), '#39ff14');
-        createChart('fatChart', '% Grasa', history.map(h => h.fat || 0), '#ff3b30');
-        createChart('muscleChart', '% Músculo', history.map(h => h.muscle || 0), '#00d4ff');
+
+    showWorkoutDetails: (w) => {
+        const modal = document.getElementById('workout-detail-modal'); const content = document.getElementById('wd-content');
+        const d = w.date.seconds ? new Date(w.date.seconds * 1000) : new Date(w.date);
+        document.getElementById('wd-title').innerText = w.data.name;
+        let html = `<p><strong>Fecha:</strong> ${d.toLocaleString()}</p><p><strong>Notas:</strong> ${w.notes || 'Ninguna'}</p><p><strong>RPE:</strong> ${w.rpe}</p><hr style="border:0; border-top:1px solid #444; margin:10px 0">`;
+        w.data.exercises.forEach(ex => {
+            html += `<h4 style="margin:10px 0 5px; color:var(--neon-green)">${ex.n}</h4><table class="detail-table"><thead><tr><th>Serie</th><th>Kg</th><th>Reps</th></tr></thead><tbody>`;
+            ex.sets.forEach((s, i) => { html += `<tr><td>#${i+1}</td><td>${s.kg}</td><td>${s.reps}</td></tr>`; });
+            html += `</tbody></table>`;
+        });
+        content.innerHTML = html; modal.classList.remove('hidden');
     },
-    saveSettings: async () => { /*... V4 Code ...*/ },
+
+    uploadPhoto: (input) => {
+        const file = input.files[0]; if(!file) return;
+        if(file.size > 2 * 1024 * 1024) return alert("Imagen muy grande");
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const img = new Image(); img.src = e.target.result;
+            img.onload = async () => {
+                const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+                const MAX = 300; let w = img.width, h = img.height;
+                if (w > h) { if (w > MAX) { h *= MAX / w; w = MAX; } } else { if (h > MAX) { w *= MAX / h; h = MAX; } }
+                canvas.width = w; canvas.height = h; ctx.drawImage(img, 0, 0, w, h);
+                const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                try { await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 }); state.profile.photoURL = base64; document.getElementById('profile-img').src = base64; } catch(err) { alert("Error"); }
+            };
+        };
+        reader.readAsDataURL(file);
+    },
+
+    saveStats: async () => {
+        const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
+        if(!w) return alert("Falta peso");
+        try {
+            const newEntry = { date: new Date(), weight: parseFloat(w), fat: f?parseFloat(f):0, muscle: m?parseFloat(m):0 };
+            await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
+            if(!state.profile.statsHistory) state.profile.statsHistory = []; state.profile.statsHistory.push(newEntry);
+            alert("Guardado"); profile.renderCharts();
+        } catch(e) { alert("Error"); }
+    },
+
+    renderCharts: () => {
+        const history = state.profile.statsHistory || []; history.sort((a,b) => (a.date.seconds || a.date) - (b.date.seconds || b.date));
+        chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
+        chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
+        chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
+    },
+
+    saveSettings: async () => {
+        const time = parseInt(document.getElementById('conf-rest-time').value); if(!time) return;
+        try { await updateDoc(doc(db, "users", state.user.uid), { "settings.restTime": time }); state.profile.settings.restTime = time; alert("Guardado"); } catch(e) { alert("Error"); }
+    },
     
     requestNotify: () => {
         if (!("Notification" in window)) return alert("No soportado");
-        Notification.requestPermission().then(perm => { 
-            if(perm === "granted") new Notification("Notificaciones Activas", { body: "Te avisaremos al terminar el descanso." }); 
-            else alert("Permiso denegado");
-        });
+        Notification.requestPermission().then(perm => { if(perm === "granted") new Notification("¡Activado!"); });
     },
-    
-    sendNotification: (title, body) => {
-        if(Notification.permission === "granted") new Notification(title, { body: body, icon: 'logo.png' });
-    },
+    sendNotification: (title, body) => { if(Notification.permission === "granted") new Notification(title, { body: body, icon: 'logo.png' }); },
+    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play().then(() => alert("Sonido OK")); } }
+};
 
-    testSound: () => {
-        if(state.sounds.beep) {
-            state.sounds.beep.currentTime = 0;
-            state.sounds.beep.play().then(() => alert("Sonido OK")).catch(e => alert("Error audio: Interactúa primero con la página"));
-        }
+const chartHelpers = {
+    renderLine: (id, history, field, color) => {
+        const ctx = document.getElementById(id); if(!ctx) return; if(ctx.chartInstance) ctx.chartInstance.destroy();
+        const labels = history.map(h => new Date(h.date.seconds ? h.date.seconds*1000 : h.date).toLocaleDateString());
+        const data = history.map(h => h[field]);
+        ctx.chartInstance = new Chart(ctx, { type: 'line', data: { labels: labels, datasets: [{ label: field, data: data, borderColor: color, backgroundColor: color+'20', tension: 0.3, fill: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#222' } }, x: { grid: { color: '#222' } } } } });
+    },
+    renderRadar: (id, counts) => {
+        const ctx = document.getElementById(id); if(!ctx) return; if(ctx.chartInstance) ctx.chartInstance.destroy();
+        ctx.chartInstance = new Chart(ctx, { type: 'radar', data: { labels: Object.keys(counts), datasets: [{ label: 'Series', data: Object.values(counts), backgroundColor: 'rgba(57, 255, 20, 0.2)', borderColor: '#39ff14', pointBackgroundColor: '#fff' }] }, options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white', font: {size: 10} }, ticks: { display: false, backdropColor: 'transparent' } } }, plugins: { legend: { display: false } } } });
     }
 };
 
-window.app = app; window.workoutManager = workoutManager; window.admin = admin; window.profile = profile;
+window.app = app; window.workoutManager = workoutManager; window.admin = admin; window.profile = profile; window.chartHelpers = chartHelpers;
 app.init();
