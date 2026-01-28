@@ -19,13 +19,12 @@ const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null };
 
-// HELPER NORMALIZAR TEXTO
+// HELPER NORMALIZAR
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const app = {
     init: () => {
         setTimeout(() => { const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none'; }, 4000);
-
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
@@ -47,13 +46,14 @@ const app = {
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
         
-        // BUSCADOR MEJORADO
+        // EVENTOS BUSCADOR
         const searchInput = document.getElementById('exercise-search');
-        searchInput.addEventListener('input', (e) => admin.searchExercises(e.target.value));
-        searchInput.addEventListener('focus', () => admin.searchExercises(searchInput.value));
-        // Cerrar al clicar fuera
+        if(searchInput) {
+            searchInput.addEventListener('input', (e) => admin.searchExercises(e.target.value));
+            searchInput.addEventListener('focus', () => admin.searchExercises(searchInput.value));
+        }
         document.addEventListener('click', (e) => {
-            if(!e.target.closest('.exercise-selector')) document.getElementById('search-results-container').classList.add('hidden');
+            if(!e.target.closest('.exercise-selector')) document.getElementById('search-results-container')?.classList.add('hidden');
         });
     },
     login: async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } catch(e) { alert(e.message); } },
@@ -97,23 +97,24 @@ const admin = {
     // --- BUSCADOR VISUAL ---
     searchExercises: (term) => {
         const container = document.getElementById('search-results-container');
+        if(!container) return; // Seguridad si no existe en HTML
         container.innerHTML = '';
         container.classList.remove('hidden');
         
         const normTerm = normalizeText(term);
-        const results = EXERCISES.filter(e => normalizeText(e.n).includes(normTerm));
+        // Filtrar y mostrar máximo 20 resultados para no colapsar
+        const results = EXERCISES.filter(e => normalizeText(e.n).includes(normTerm)).slice(0, 20);
         
         if(results.length === 0) {
             container.innerHTML = '<div style="padding:10px; color:#888">No hay resultados</div>';
             return;
         }
 
-        results.forEach((ex, idx) => {
-            // ENCONTRAR INDICE REAL EN EXERCISES
-            const realIdx = EXERCISES.indexOf(ex);
+        results.forEach((ex) => {
+            const realIdx = EXERCISES.indexOf(ex); // Indice real en array principal
             const div = document.createElement('div');
             div.className = 'search-result-item';
-            div.innerHTML = `<img src="assets/muscles/${ex.img}" width="30" height="30" style="border-radius:4px; background:#000"><span>${ex.n}</span>`;
+            div.innerHTML = `<img src="assets/muscles/${ex.img}" alt="${ex.m}"><span>${ex.n}</span>`;
             div.onclick = () => {
                 admin.addExerciseToRoutine(realIdx);
                 container.classList.add('hidden');
@@ -124,7 +125,7 @@ const admin = {
     },
 
     addExerciseToRoutine: (idx) => {
-        // 5 SERIES (20-16-16-16-16)
+        // 5 SERIES DEFAULT (20-16-16-16-16)
         state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
         admin.renderPreview(); 
     },
@@ -188,15 +189,13 @@ const admin = {
         if(!name || !client) return alert("Faltan datos");
         
         if(state.editingRoutineId) {
-            // ACTUALIZAR
             await updateDoc(doc(db, "routines", state.editingRoutineId), { name, assignedTo: client, exercises: state.newRoutine });
             alert("Actualizada");
         } else {
-            // CREAR
             await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() });
             alert("Guardada");
         }
-        admin.cancelEdit(); // Reset form
+        admin.cancelEdit(); 
         admin.renderExistingRoutines();
     },
 
@@ -275,8 +274,8 @@ const admin = {
                         <div style="display:flex; justify-content:space-between; align-items:center">
                             <h4>${r.name}</h4>
                             <div style="display:flex; gap:10px">
-                                <button style="background:none; border:none; color:white; cursor:pointer" onclick="window.admin.showRoutineDetails('${d.id}')">VER</button>
-                                <button style="background:none; border:none; color:var(--neon-green); cursor:pointer" onclick="window.admin.editRoutine('${d.id}')">EDITAR</button>
+                                <button style="background:none; border:none; color:white; cursor:pointer; font-weight:bold" onclick="window.admin.showRoutineDetails('${d.id}')">VER</button>
+                                <button style="background:none; border:none; color:var(--neon-green); cursor:pointer; font-weight:bold" onclick="window.admin.editRoutine('${d.id}')">EDITAR</button>
                             </div>
                         </div>
                         <div style="font-size:12px; color:#aaa; margin-top:5px">${r.exercises.length} Ejercicios</div>
@@ -424,6 +423,7 @@ const workoutManager = {
 const profile = {
     render: () => {
         document.getElementById('profile-name').innerText = state.profile.name;
+        // PHOTO DOM UPDATE IMMEDIATE
         const img = document.getElementById('profile-img');
         if(state.profile.photoURL) img.src = state.profile.photoURL;
         
@@ -490,7 +490,6 @@ const profile = {
     },
     requestNotify: () => { Notification.requestPermission(); },
     testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } },
-    
     uploadPhoto: (input) => {
         const file = input.files[0]; if(!file) return;
         const reader = new FileReader();
@@ -502,11 +501,9 @@ const profile = {
         };
         reader.readAsDataURL(file);
     },
-
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
         history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
-        
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
@@ -519,7 +516,17 @@ const chartHelpers = {
     renderLine: (id, data, field, color) => {
         const ctx = document.getElementById(id); if(!ctx) return;
         const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>(d.date.seconds?new Date(d.date.seconds*1000):new Date(d.date)).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
+        new Chart(ctx, { 
+            type: 'line', 
+            data: { 
+                labels: data.map(d => {
+                    const date = d.date.seconds ? new Date(d.date.seconds*1000) : new Date(d.date);
+                    return date.toLocaleDateString();
+                }), 
+                datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] 
+            }, 
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } 
+        });
     },
     renderRadar: (id, counts) => {
         const ctx = document.getElementById(id); if(!ctx) return;
