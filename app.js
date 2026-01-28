@@ -17,7 +17,6 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-// --- ESTADO GLOBAL ---
 const state = {
     user: null,
     profile: null,
@@ -27,7 +26,6 @@ const state = {
     sounds: { beep: document.getElementById('timer-beep') }
 };
 
-// --- NAVEGACIÓN ---
 const app = {
     init: () => {
         onAuthStateChanged(auth, async (user) => {
@@ -51,25 +49,43 @@ const app = {
         if(regForm) regForm.addEventListener('submit', app.handleRegister);
     },
 
+    // --- CORRECCIÓN AQUÍ: AUTO-REPARAR PERFIL SI FALTA ---
     loadProfile: async (uid) => {
         try {
-            const docSnap = await getDoc(doc(db, "users", uid));
+            const docRef = doc(db, "users", uid);
+            const docSnap = await getDoc(docRef);
+            
             if (docSnap.exists()) {
                 state.profile = docSnap.data();
-                // Inicializar estructuras si faltan
-                if (!state.profile.settings) state.profile.settings = { restTime: 60 };
-                if (!state.profile.lastLifts) state.profile.lastLifts = {}; // Aquí se guardan los récords
-                
-                app.handleLoginSuccess();
             } else {
-                console.error("Sin perfil");
-                auth.signOut();
+                // SI NO EXISTE EL PERFIL, LO CREAMOS EN VEZ DE DAR ERROR
+                console.warn("Perfil no encontrado en DB, creando uno nuevo...");
+                const newProfile = {
+                    name: state.user.email.split('@')[0], // Usar parte del email como nombre
+                    role: 'athlete',
+                    approved: false,
+                    settings: { restTime: 60 },
+                    lastLifts: {},
+                    statsHistory: [],
+                    createdAt: new Date()
+                };
+                await setDoc(docRef, newProfile);
+                state.profile = newProfile;
             }
-        } catch (e) { console.error(e); }
+
+            // Asegurar que existan los objetos anidados para evitar errores futuros
+            if (!state.profile.settings) state.profile.settings = { restTime: 60 };
+            if (!state.profile.lastLifts) state.profile.lastLifts = {};
+            
+            app.handleLoginSuccess();
+
+        } catch (e) { 
+            console.error("Error crítico cargando perfil:", e);
+            alert("Error de conexión con la base de datos.");
+        }
     },
 
     handleLoginSuccess: () => {
-        // Mostrar botón admin si corresponde
         const adminBtn = document.getElementById('admin-btn');
         if (adminBtn) {
             if(state.profile.role === 'admin' || state.profile.role === 'coach') {
@@ -148,14 +164,14 @@ const app = {
                 role: 'athlete',
                 approved: false,
                 settings: { restTime: 60 },
-                lastLifts: {}, // Historial de pesos
+                lastLifts: {},
+                statsHistory: [],
                 createdAt: new Date()
             });
         } catch (err) { alert(err.message); }
     }
 };
 
-// --- ADMIN ---
 const admin = {
     render: () => {
         const select = document.getElementById('admin-exercise-select');
@@ -212,7 +228,6 @@ const admin = {
     }
 };
 
-// --- DASHBOARD ---
 const dashboard = {
     render: async () => {
         if(state.profile && !state.profile.approved && state.profile.role !== 'admin') {
@@ -252,7 +267,6 @@ const dashboard = {
     }
 };
 
-// --- WORKOUT ---
 const workoutManager = {
     start: async (routineId, routineName) => {
         try {
@@ -300,7 +314,6 @@ const workoutManager = {
             const div = document.createElement('div');
             div.className = 'exercise-card';
             
-            // Imagen con fallback
             const imgSrc = ex.img ? `assets/muscles/${ex.img}` : 'assets/placeholder-body.png';
             
             div.innerHTML = `
@@ -324,7 +337,7 @@ const workoutManager = {
         const list = document.getElementById(`sets-list-${exIdx}`);
         const ex = state.activeWorkout.exercises[exIdx];
         
-        // Obtener historial de peso para este ejercicio
+        // RECUPERAR PREVIO
         const prevWeight = state.profile.lastLifts && state.profile.lastLifts[ex.n] 
             ? state.profile.lastLifts[ex.n] + 'kg' 
             : '--';
@@ -397,7 +410,6 @@ const workoutManager = {
     },
 
     adjustRest: (amount) => {
-        // En una app real aquí sumarías al tiempo restante
         console.log("Ajuste rest: " + amount);
     },
 
@@ -415,7 +427,6 @@ const workoutManager = {
     finishWorkout: async () => {
         if(!confirm("¿Guardar y finalizar?")) return;
         try {
-            // 1. Guardar LOG del entreno
             await addDoc(collection(db, "workouts"), {
                 userId: state.user.uid,
                 date: new Date(),
@@ -424,7 +435,7 @@ const workoutManager = {
                 notes: document.getElementById('workout-notes').value
             });
 
-            // 2. Actualizar HISTORIAL DE PESOS (PRs) en el perfil
+            // Actualizar récords personales
             const newLifts = {};
             state.activeWorkout.exercises.forEach(ex => {
                 let maxWeight = 0;
@@ -435,10 +446,9 @@ const workoutManager = {
                 if(maxWeight > 0) newLifts[`lastLifts.${ex.n}`] = maxWeight;
             });
 
-            // Actualizar campos anidados en Firestore (dot notation)
             if(Object.keys(newLifts).length > 0) {
                 await updateDoc(doc(db, "users", state.user.uid), newLifts);
-                // Actualizar estado local también
+                // Actualizar local
                 state.activeWorkout.exercises.forEach(ex => {
                     let maxWeight = 0;
                     ex.sets.forEach(s => { if(parseFloat(s.kg) > maxWeight) maxWeight = parseFloat(s.kg); });
@@ -459,7 +469,6 @@ const workoutManager = {
     }
 };
 
-// --- PERFIL ---
 const profile = {
     render: () => {
         if(!state.profile) return;
