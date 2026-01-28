@@ -3,80 +3,160 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BCN Fitness</title>
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="logo.png" type="image/png">
+    <meta name="theme-color" content="#000000">
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
-        /* --- CSS INTEGRADO PARA EVITAR ERRORES DE CARGA --- */
-        :root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; --text-gray: #a0a0a0; --danger: #ff3b30; --gold: #FFD700; --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
+        /* --- ESTILOS V12 --- */
+        :root {
+            --neon-green: #39ff14;
+            --dark-bg: #000000;
+            --card-bg: #121212;
+            --input-bg: #1e1e1e;
+            --text-white: #ffffff;
+            --text-gray: #a0a0a0;
+            --danger: #ff3b30;
+            --gold: #FFD700;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
-        body { height: 100%; width: 100%; margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: var(--text-white); overflow: hidden; position: fixed; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
-        h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; margin-top: 0; }
         
-        #main-container { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(60px + var(--safe-top) + 20px); padding-bottom: calc(70px + var(--safe-bottom) + 20px); padding-left: 16px; padding-right: 16px; }
+        body { 
+            height: 100%; width: 100%; margin: 0; 
+            background-color: var(--dark-bg); 
+            font-family: 'Roboto', sans-serif; color: var(--text-white); 
+            overflow: hidden; position: fixed; 
+            padding-top: var(--safe-top); padding-bottom: var(--safe-bottom);
+        }
+
+        h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; margin-top: 0; }
+
+        #main-container {
+            height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding-top: calc(60px + var(--safe-top) + 20px);
+            padding-bottom: calc(70px + var(--safe-bottom) + 20px);
+            padding-left: 16px; padding-right: 16px;
+        }
         #main-container::-webkit-scrollbar { display: none; }
 
-        /* HEADER & NAV */
-        #app-header { height: calc(60px + var(--safe-top)); padding-top: var(--safe-top); position: fixed; top: 0; width: 100%; background: rgba(18,18,18,0.95); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid #333; }
-        #bottom-nav { height: calc(70px + var(--safe-bottom)); padding-bottom: var(--safe-bottom); position: fixed; bottom: 0; width: 100%; background: rgba(18,18,18,0.95); backdrop-filter: blur(10px); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #333; z-index: 100; }
+        /* HEADER */
+        #app-header {
+            height: calc(60px + var(--safe-top));
+            padding-top: var(--safe-top);
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: rgba(18,18,18,0.95); backdrop-filter: blur(10px);
+            z-index: 100; display: flex; align-items: center; justify-content: space-between;
+            padding-left: 16px; padding-right: 16px; border-bottom: 1px solid #333;
+        }
+
+        /* NAV */
+        #bottom-nav {
+            height: calc(70px + var(--safe-bottom));
+            padding-bottom: var(--safe-bottom);
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: rgba(18,18,18,0.95); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-around; align-items: center;
+            border-top: 1px solid #333; z-index: 100;
+        }
         .nav-item { color: var(--text-gray); display: flex; flex-direction: column; align-items: center; font-size: 12px; cursor: pointer; }
         .nav-item.active { color: var(--neon-green); }
 
         /* UI ELEMENTS */
-        .btn-primary { background: var(--neon-green); color: black; font-weight: 900; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-family: 'Russo One'; margin-top: 10px; }
-        .btn-secondary { background: #333; color: white; padding: 12px; border-radius: 6px; width: 100%; font-weight: bold; border: none; margin-top: 5px; }
-        .btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 8px 16px; border-radius: 4px; font-weight: bold; }
-        .btn-finish { background: var(--neon-green); color: black; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-family: 'Russo One'; }
-        .icon-btn { background: none; border: none; color: white; cursor: pointer; } .icon-btn i { font-size: 28px; }
-        input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; }
-        .section-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); }
-        .warning-box { background: rgba(255, 165, 0, 0.2); color: orange; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid orange; text-align: center; }
+        .btn-primary { background: var(--neon-green); color: black; font-weight: 900; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-family: 'Russo One'; margin-top: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(57,255,20,0.3); }
+        .btn-secondary { background: #333; color: white; padding: 12px; border-radius: 6px; width: 100%; font-weight: bold; border: none; margin-top: 5px; cursor: pointer; }
+        .btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .btn-finish { background: var(--neon-green); color: black; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; font-family: 'Russo One'; cursor: pointer; }
+        .icon-btn { background: none; border: none; color: white; cursor: pointer; display:flex; align-items:center; justify-content:center; } 
+        .icon-btn i { font-size: 28px; }
+        
+        input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; font-family: 'Roboto', sans-serif; }
+        input:focus, select:focus, textarea:focus { border-color: var(--neon-green); outline: none; }
+        
+        .section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); }
+        .warning-box { background: rgba(255, 165, 0, 0.2); color: orange; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid orange; text-align: center; font-size: 14px; }
+
+        /* INSTALL BOX */
+        .install-box {
+            margin-top: 30px; background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(10px); border: 1px solid rgba(57, 255, 20, 0.3);
+            border-radius: 16px; padding: 15px; text-align: left;
+        }
+        .install-header { color: var(--neon-green); font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-family: 'Russo One'; }
+        .install-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #ccc; }
+        .brand-badge { background: #333; padding: 4px 8px; border-radius: 4px; color: white; display: flex; align-items: center; gap: 5px; min-width: 85px; }
+        .install-divider { height: 1px; background: #444; margin: 8px 0; }
+        .tiny { font-size: 14px; vertical-align: middle; }
+
+        /* DASHBOARD STATS */
+        .progress-bar-bg { background: #222; height: 10px; border-radius: 5px; width: 100%; overflow: hidden; border: 1px solid #333; margin-top:5px; }
+        .progress-bar-fill { background: var(--neon-green); height: 100%; transition: width 0.5s; box-shadow: 0 0 10px rgba(57,255,20,0.5); }
 
         /* WORKOUT */
         .workout-sticky-header { position: sticky; top: 0; background: rgba(0,0,0,0.95); z-index: 50; padding: 10px 0; margin-bottom: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         .set-row { display: grid; grid-template-columns: 0.4fr 1fr 0.8fr 0.8fr 0.4fr; gap: 8px; align-items: center; margin-top: 8px; padding: 8px; background: #080808; border-radius: 6px; }
-        .set-row input { text-align: center; font-weight: bold; font-size: 18px; }
-        .check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .check-box.checked { background: var(--neon-green); }
-        
+        .set-row input { text-align: center; font-weight: bold; font-size: 18px; margin:0; }
+        .set-completed { opacity: 0.4; pointer-events: none; }
+        .check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .check-box.checked { background: var(--neon-green); color: black; font-weight: bold; }
+
+        /* ADMIN LISTS */
+        .user-row { display: flex; align-items: center; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; }
+        .user-avatar-small { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid var(--neon-green); }
+        .routine-count-badge { font-size: 11px; background: #444; color: var(--neon-green); padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
+
         /* MODALES */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .modal-content { text-align: center; width: 85%; }
-        #rest-countdown { font-size: 80px; font-family: 'Russo One'; color: var(--neon-green); }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; justify-content: center; align-items: center; }
+        .modal-content { text-align: center; width: 85%; max-height: 80vh; overflow-y: auto; background: #111; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        #rest-countdown { font-size: 80px; font-family: 'Russo One'; color: var(--neon-green); margin: 20px 0; }
         
-        /* UTILS */
+        /* Charts & History */
+        .chart-container { position: relative; height: 200px; width: 100%; }
+        .history-item { background: #1c1c1e; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #666; cursor: pointer; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .stat-box { background: #222; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #333; }
+        .stat-box small { display: block; color: #888; font-size: 10px; margin-bottom: 5px; }
+        .stat-box strong { font-size: 20px; color: white; font-family: 'Russo One'; }
+        
+        /* Utils */
         .hidden { display: none !important; }
         .active { display: block; animation: fadeUp 0.3s forwards; }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .row { display: flex; justify-content: space-between; gap: 10px; }
         
-        /* OTROS ESTILOS NECESARIOS */
-        .chart-container { position: relative; height: 200px; width: 100%; }
-        .progress-bar-bg { background: #222; height: 10px; border-radius: 5px; width: 100%; overflow: hidden; border: 1px solid #333; }
-        .progress-bar-fill { background: var(--neon-green); height: 100%; transition: width 0.5s; }
-        .user-row { display: flex; align-items: center; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; }
-        .history-item { background: #1c1c1e; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #666; }
+        /* Splash */
+        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
+        .pulse-logo { width: 150px; animation: pulse 2.5s infinite; border-radius: 50%; }
+        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); } 50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(57, 255, 20, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); } }
         
-        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: black; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }
-        .pulse-logo { width: 150px; animation: pulse 2s infinite; border-radius: 50%; }
-        @keyframes pulse { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(57, 255, 20, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); } }
+        /* Toasts */
+        #toast-container { position: fixed; top: 100px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; z-index: 10001; pointer-events: none; }
+        .toast { background: rgba(30,30,30,0.95); border: 1px solid var(--neon-green); color: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); animation: slideIn 0.3s ease-out forwards; }
+        .toast.gold { border-color: var(--gold); } .toast.gold i { color: var(--gold); }
     </style>
 </head>
 <body>
 
     <div id="splash-screen">
-        <img src="logo.png" alt="BCN" class="pulse-logo" onerror="this.src='https://via.placeholder.com/150/000000/39ff14?text=BCN'">
+        <img src="logo.png" alt="BCN Fitness" class="pulse-logo" onerror="this.src='https://via.placeholder.com/150/000000/39ff14?text=BCN'">
         <h1 style="color:white; margin-top:20px; font-family:'Russo One'">BCN FITNESS</h1>
     </div>
 
     <header id="app-header" class="hidden">
         <div style="display:flex; align-items:center; gap:10px">
+            <img src="logo.png" alt="Logo" style="height:30px; border-radius:50%">
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
@@ -91,6 +171,7 @@
         
         <section id="view-login" class="view active">
             <div style="text-align:center; padding-top:20px">
+                <img src="logo.png" alt="Logo" width="100" style="border-radius:50%; margin-bottom:20px">
                 <h1 style="color:var(--neon-green)">BCN FITNESS</h1>
                 <form id="login-form">
                     <input type="email" id="login-email" placeholder="Email" required style="margin-bottom:10px">
@@ -98,6 +179,19 @@
                     <button type="submit" class="btn-primary">ENTRAR</button>
                 </form>
                 <p onclick="window.app.navTo('register')" style="color:#888; margin-top:20px; cursor:pointer">Crear cuenta</p>
+                
+                <div class="install-box">
+                    <div class="install-header"><i class="material-icons-round">download</i> INSTALAR APP</div>
+                    <div class="install-row">
+                        <div class="brand-badge"><i class="material-icons-round">phone_iphone</i> iOS</div>
+                        <span>Pulsa <i class="material-icons-round tiny">ios_share</i> y <strong>"Añadir a inicio"</strong></span>
+                    </div>
+                    <div class="install-divider"></div>
+                    <div class="install-row">
+                        <div class="brand-badge"><i class="material-icons-round">android</i> Android</div>
+                        <span>Pulsa <i class="material-icons-round tiny">more_vert</i> y <strong>"Instalar"</strong></span>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -137,7 +231,7 @@
                 <div id="admin-users-list"></div>
             </div>
             <div class="section-card">
-                <h4>Crear Rutina</h4>
+                <h4>Crear Rutina Base</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina">
                 <div style="margin-top:10px">
                     <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio...">
@@ -147,20 +241,49 @@
                 <div id="admin-routine-preview" style="margin-top:10px; border-top:1px solid #333"></div>
                 <button class="btn-primary" onclick="window.admin.saveRoutine()">GUARDAR</button>
             </div>
+            <div class="section-card">
+                <h4>Todas las Rutinas</h4>
+                <div id="admin-routines-management"></div>
+            </div>
         </section>
 
         <section id="view-client-detail" class="view hidden">
+            <div class="workout-sticky-header">
+                <button class="icon-btn" onclick="window.app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
+                <h3 id="client-detail-name">Cliente</h3>
+                <div style="width:30px"></div>
+            </div>
+
             <div class="section-card" style="text-align:center">
-                <h2 id="client-detail-name">Cliente</h2>
-                <div class="row">
+                <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto">
+                <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
+                <div class="row" style="margin-top:10px">
                     <div><strong id="cd-weight" style="color:var(--neon-green)">--</strong><br><small>Peso</small></div>
                     <div><strong id="cd-fat" style="color:orange">--</strong><br><small>Grasa</small></div>
                     <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><br><small>Músculo</small></div>
                 </div>
+                <div style="margin-top:15px; background:#222; padding:10px; border-radius:8px; border:1px solid #333; text-align:left">
+                    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:5px">
+                        <span>Objetivo Semanal</span><strong id="client-weekly-count" style="color:var(--neon-green)">0/0</strong>
+                    </div>
+                    <div class="progress-bar-bg"><div id="client-weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
+                </div>
             </div>
-            <div class="section-card"><h4>Rutinas</h4><div id="client-routines-list"></div></div>
-            <div class="section-card"><h4>Historial</h4><div id="client-detail-history"></div></div>
-            <button class="btn-secondary" onclick="window.app.navTo('admin')">VOLVER AL PANEL</button>
+            
+            <div class="section-card" style="border-left: 4px solid var(--neon-green)">
+                <h4>Rutinas Asignadas</h4>
+                <div id="client-routines-list"></div>
+                <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px">
+                    <label style="font-size:12px; color:#888;">Clonar nueva rutina:</label>
+                    <div style="display:flex; gap:10px">
+                        <select id="client-clone-select" style="margin:0"></select>
+                        <button class="btn-secondary" style="width:auto; margin:0" onclick="window.admin.cloneRoutineFromClientView()">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
+            <div class="section-card"><h4>Historial (Click para ver)</h4><div id="client-detail-history"></div></div>
         </section>
 
         <section id="view-workout" class="view hidden">
@@ -182,25 +305,31 @@
                 <input type="number" id="stats-muscle" placeholder="% Músculo">
                 <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
             </div>
-            <div class="section-card"><h3>Evolución Peso</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
             <div class="section-card">
                 <h3>Configuración</h3>
                 <label>Objetivo Semanal (Días):</label>
                 <input type="number" id="conf-weekly-goal" placeholder="4">
+                <label>Tiempo Descanso (seg):</label>
+                <input type="number" id="conf-rest-time" placeholder="60">
                 <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR</button>
+                <div style="margin-top:15px; display:flex; gap:10px">
+                    <button class="btn-icon-large" onclick="window.profile.requestNotify()">🔔 Avisos</button>
+                    <button class="btn-icon-large" onclick="window.profile.testSound()">🔊 Test Sonido</button>
+                </div>
             </div>
+            <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
         </section>
 
     </main>
 
-    <div id="rest-modal" class="modal-overlay hidden">
+    <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
         <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
             <h1 id="rest-countdown">00:00</h1>
-            <button onclick="window.workoutManager.stopRest()" class="btn-primary">¡A DARLE!</button>
+            <button onclick="window.workoutManager.stopRest()" class="btn-primary">¡SEGUIR!</button>
         </div>
     </div>
 
-    <div id="finish-modal" class="modal-overlay hidden">
+    <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>¿Qué tal fue?</h3>
             <div style="display:flex; gap:10px; margin:20px 0">
@@ -213,10 +342,22 @@
         </div>
     </div>
 
+    <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;">
+        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h3 style="margin:0" id="wd-title">Detalles</h3>
+                <button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button>
+            </div>
+            <div id="wd-content"></div>
+        </div>
+    </div>
+
     <nav id="bottom-nav" class="hidden">
         <div onclick="window.app.navTo('dashboard')" class="nav-item"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
         <div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div>
     </nav>
+
+    <div id="toast-container"></div>
 
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
 
@@ -224,14 +365,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-
-        // --- DATOS DE EJERCICIOS (Embed) ---
-        const EXERCISES = [
-            {n:"Sentadilla", m:"Cuádriceps"}, {n:"Press Banca", m:"Pecho"}, 
-            {n:"Peso Muerto", m:"Espalda"}, {n:"Dominadas", m:"Espalda"},
-            {n:"Press Militar", m:"Hombros"}, {n:"Curl Bíceps", m:"Bíceps"},
-            {n:"Extensión Tríceps", m:"Tríceps"}, {n:"Zancadas", m:"Cuádriceps"}
-        ];
+        import { EXERCISES } from './data.js'; // IMPORTAMOS EL DATA EXTERNO
 
         // --- CONFIG FIREBASE ---
         const firebaseConfig = {
@@ -247,9 +381,9 @@
         const auth = getAuth(appInstance);
         const db = getFirestore(appInstance);
 
-        const state = { user: null, profile: null, activeWorkout: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') } };
+        const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
 
-        // --- GESTORES ---
+        // --- APP LOGIC ---
         const app = {
             init: () => {
                 onAuthStateChanged(auth, async (user) => {
@@ -260,24 +394,20 @@
                             state.profile = docSnap.data();
                             if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
                             app.handleLoginSuccess();
-                        } else {
-                            signOut(auth);
-                        }
+                        } else { signOut(auth); }
                     } else {
                         app.navTo('login');
                         setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500);
                     }
                 });
-                
-                // EVENTOS MANUALES PARA ASEGURAR QUE FUNCIONAN
                 document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
                 document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
+                document.getElementById('exercise-search').addEventListener('input', (e) => admin.filterExercises(e.target.value));
             },
 
             login: async () => {
-                try {
-                    await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value);
-                } catch(e) { alert("Error: " + e.message); }
+                try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } 
+                catch(e) { alert("Error: " + e.message); }
             },
 
             register: async () => {
@@ -286,11 +416,10 @@
                     const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value);
                     await setDoc(doc(db, "users", cred.user.uid), {
                         name: document.getElementById('reg-name').value,
-                        role: 'athlete',
-                        approved: false,
-                        settings: { weeklyGoal: 3, restTime: 60 },
-                        statsHistory: [],
-                        createdAt: new Date()
+                        role: 'athlete', clientType: document.getElementById('reg-role-select').value,
+                        age: document.getElementById('reg-age').value,
+                        approved: false, settings: { weeklyGoal: 3, restTime: 60 },
+                        statsHistory: [], createdAt: new Date()
                     });
                 } catch(e) { alert("Error: " + e.message); }
             },
@@ -299,7 +428,7 @@
                 const btn = document.getElementById('admin-btn');
                 if(state.profile.role === 'admin' || state.profile.role === 'coach') {
                     btn.classList.remove('hidden');
-                    admin.loadUsers(); // Cargar usuarios inmediatamente si es coach
+                    admin.loadUsers();
                 }
                 
                 const saved = localStorage.getItem('bcn_workout');
@@ -323,21 +452,45 @@
 
                 if(view === 'dashboard') dashboard.render();
                 if(view === 'profile') profile.render();
-                if(view === 'admin') admin.render();
+                // Admin no se renderiza automáticamente para no cargar datos innecesarios
+            },
+            
+            showToast: (msg, type='normal') => {
+                const div = document.createElement('div');
+                div.className = `toast ${type}`; 
+                div.innerHTML = `<i>${type==='gold'?'emoji_events':'check'}</i> ${msg}`;
+                document.getElementById('toast-container').appendChild(div);
+                setTimeout(()=>div.remove(), 3000);
             }
         };
 
         const workoutManager = {
             start: async (rid, rname) => {
-                const docSnap = await getDoc(doc(db, "routines", rid));
-                const data = docSnap.data();
-                state.activeWorkout = {
-                    name: rname,
-                    start: Date.now(),
-                    exercises: data.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) }))
-                };
-                localStorage.setItem('bcn_workout', JSON.stringify(state.activeWorkout));
-                workoutManager.uiInit();
+                try {
+                    const docSnap = await getDoc(doc(db, "routines", rid));
+                    const data = docSnap.data();
+                    
+                    // Buscar historial previo para comparar
+                    state.lastWorkoutData = null;
+                    const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+                    const snap = await getDocs(q);
+                    const workouts = [];
+                    snap.forEach(d => workouts.push(d.data()));
+                    workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+                    const last = workouts.find(w => w.data.name === rname);
+                    if(last) state.lastWorkoutData = last.data;
+
+                    state.activeWorkout = {
+                        name: rname, start: Date.now(),
+                        exercises: data.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) }))
+                    };
+                    localStorage.setItem('bcn_workout', JSON.stringify(state.activeWorkout));
+                    
+                    // Wake Lock
+                    try { state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+                    
+                    workoutManager.uiInit();
+                } catch(e) { alert("Error al iniciar: " + e.message); }
             },
 
             uiInit: () => {
@@ -347,9 +500,15 @@
                 state.activeWorkout.exercises.forEach((ex, idx) => {
                     let setsHtml = '';
                     ex.sets.forEach((s, sIdx) => {
+                        let prevInfo = '--';
+                        if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[sIdx]) {
+                            const p = state.lastWorkoutData.exercises[idx].sets[sIdx];
+                            prevInfo = `${p.reps}x${p.kg}`;
+                        }
                         setsHtml += `
                         <div class="set-row ${s.done?'set-completed':''}">
                             <span>#${sIdx+1}</span>
+                            <span style="font-size:10px; color:#888">${prevInfo}</span>
                             <input type="number" placeholder="reps" value="${s.reps}" onchange="window.workoutManager.updateSet(${idx},${sIdx},'reps',this.value)">
                             <input type="number" placeholder="kg" value="${s.kg}" onchange="window.workoutManager.updateSet(${idx},${sIdx},'kg',this.value)">
                             <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${sIdx})">✔</div>
@@ -375,11 +534,26 @@
             toggleSet: (exIdx, sIdx) => {
                 const s = state.activeWorkout.exercises[exIdx].sets[sIdx];
                 s.done = !s.done;
+                
+                // 1RM RECORD CHECK
+                if(s.done && s.kg && s.reps) {
+                    const kg = parseFloat(s.kg); const reps = parseInt(s.reps);
+                    const oneRM = Math.round(kg * (1 + reps/30));
+                    const exName = state.activeWorkout.exercises[exIdx].n;
+                    if(!state.profile.records) state.profile.records = {};
+                    if(oneRM > (state.profile.records[exName] || 0)) {
+                        state.profile.records[exName] = oneRM;
+                        updateDoc(doc(db, "users", state.user.uid), { [`records.${exName}`]: oneRM });
+                        app.showToast(`¡RÉCORD! ${exName} (${oneRM}kg)`, 'gold');
+                        confetti();
+                    }
+                }
+
                 if(s.done) {
-                    if(state.sounds.beep) state.sounds.beep.play().catch(e=>console.log(e));
+                    if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
                     workoutManager.startRest(state.profile.settings?.restTime || 60);
                 }
-                workoutManager.uiInit(); // Re-render para actualizar colores
+                workoutManager.uiInit(); 
             },
 
             startRest: (sec) => {
@@ -391,7 +565,7 @@
                 const update = () => {
                     document.getElementById('rest-countdown').innerText = remaining;
                     if(remaining <= 0) {
-                        if(state.sounds.beep) state.sounds.beep.play().catch(e=>console.log(e));
+                        if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
                         if(navigator.vibrate) navigator.vibrate([200,200]);
                         workoutManager.stopRest();
                     }
@@ -410,6 +584,7 @@
                 if(confirm("¿Cancelar?")) {
                     localStorage.removeItem('bcn_workout');
                     state.activeWorkout = null;
+                    if(state.wakeLock) state.wakeLock.release();
                     app.navTo('dashboard');
                 }
             },
@@ -420,17 +595,22 @@
 
             confirmFinish: async (rpe) => {
                 document.getElementById('finish-modal').classList.add('hidden');
+                if(!state.user || !state.activeWorkout) return alert("Error: No hay sesión activa");
+                
                 try {
                     await addDoc(collection(db, "workouts"), {
                         userId: state.user.uid,
+                        userName: state.profile.name,
                         date: new Date(),
                         data: state.activeWorkout,
                         rpe: rpe,
-                        notes: document.getElementById('final-notes').value
+                        notes: document.getElementById('final-notes').value || ''
                     });
                     localStorage.removeItem('bcn_workout');
                     state.activeWorkout = null;
-                    alert("¡Entreno Guardado!");
+                    if(state.wakeLock) state.wakeLock.release();
+                    
+                    app.showToast("¡Entreno Guardado!", "gold");
                     confetti();
                     app.navTo('dashboard');
                 } catch(e) { alert("Error al guardar: " + e.message); }
@@ -442,33 +622,34 @@
                 const container = document.getElementById('routines-list');
                 container.innerHTML = 'Cargando...';
                 
-                // Progreso semanal
+                // Calculo Semana Actual
                 const now = new Date();
-                const start = new Date(now.setDate(now.getDate() - now.getDay() + 1));
-                start.setHours(0,0,0,0);
-                
-                // Consulta SEGURA sin indices complejos
+                const day = now.getDay() || 7; 
+                if(day !== 1) now.setHours(-24 * (day - 1)); 
+                now.setHours(0,0,0,0); // Lunes 00:00
+
                 const qDocs = await getDocs(query(collection(db, "workouts"), where("userId", "==", state.user.uid)));
                 let weekCount = 0;
                 qDocs.forEach(d => {
-                    if(d.data().date.seconds * 1000 > start.getTime()) weekCount++;
+                    if(d.data().date.seconds * 1000 >= now.getTime()) weekCount++;
                 });
                 
                 const goal = state.profile.settings?.weeklyGoal || 3;
                 document.getElementById('weekly-count').innerText = `${weekCount}/${goal}`;
                 document.getElementById('weekly-bar').style.width = Math.min((weekCount/goal)*100, 100) + '%';
 
-                // Rutinas
                 const qRut = await getDocs(collection(db, "routines"));
                 container.innerHTML = '';
                 qRut.forEach(doc => {
                     const r = doc.data();
                     if(r.assignedTo === state.user.uid) {
                         container.innerHTML += `
-                        <div class="section-card" onclick="window.workoutManager.start('${doc.id}', '${r.name}')">
-                            <h3>${r.name}</h3>
-                            <p>${r.exercises.length} Ejercicios</p>
-                            <button class="btn-primary" style="margin-top:5px">EMPEZAR</button>
+                        <div class="exercise-card" onclick="window.workoutManager.start('${doc.id}', '${r.name}')" style="cursor:pointer">
+                            <div style="display:flex; justify-content:space-between; align-items:center">
+                                <h3 style="margin:0">${r.name}</h3>
+                                <i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i>
+                            </div>
+                            <p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p>
                         </div>`;
                     }
                 });
@@ -478,6 +659,7 @@
         const admin = {
             render: () => {
                 admin.loadUsers();
+                admin.renderExistingRoutines();
                 // Llenar selector ejercicios
                 const sel = document.getElementById('admin-exercise-select');
                 sel.innerHTML = '';
@@ -489,17 +671,29 @@
                 const div = document.getElementById('admin-users-list');
                 div.innerHTML = 'Cargando...';
                 try {
+                    // Contar rutinas
+                    const rutSnap = await getDocs(collection(db, "routines"));
+                    const counts = {};
+                    rutSnap.forEach(d => { 
+                        const uid = d.data().assignedTo;
+                        if(uid) counts[uid] = (counts[uid]||0) + 1;
+                    });
+
                     const snap = await getDocs(collection(db, "users"));
                     div.innerHTML = '';
                     const selectAssign = document.getElementById('assign-client-select');
                     selectAssign.innerHTML = '<option disabled selected>Elegir Cliente...</option>';
                     
+                    state.allClients = [];
                     snap.forEach(d => {
                         const u = d.data();
+                        state.allClients.push({id:d.id, ...u});
+                        const rCount = counts[d.id] || 0;
                         div.innerHTML += `
                         <div class="user-row" onclick="window.admin.viewClient('${d.id}')">
-                            <div><strong>${u.name}</strong><br><small>${u.clientType}</small></div>
-                            ${!u.approved ? '<span style="color:orange">PENDIENTE</span>' : ''}
+                            <img src="${u.photoURL || 'assets/placeholder-body.png'}" class="user-avatar-small">
+                            <div><strong>${u.name}</strong> <span class="routine-count-badge">[${rCount}]</span><br><small>${u.clientType}</small></div>
+                            ${!u.approved ? '<span style="color:orange; margin-left:auto">PENDIENTE</span>' : ''}
                         </div>`;
                         selectAssign.innerHTML += `<option value="${d.id}">${u.name}</option>`;
                     });
@@ -530,49 +724,145 @@
                 state.newRoutine = [];
                 document.getElementById('new-routine-name').value = '';
                 admin.renderPreview();
+                admin.loadUsers();
             },
 
             viewClient: async (uid) => {
-                const docSnap = await getDoc(doc(db, "users", uid));
-                const u = docSnap.data();
-                document.getElementById('client-detail-name').innerText = u.name;
+                state.currentClientId = uid;
+                const user = state.allClients.find(c => c.id === uid);
                 
-                // Mostrar gráficas y medidas si existen
-                const lastStat = u.statsHistory ? u.statsHistory[u.statsHistory.length-1] : null;
+                document.getElementById('client-detail-name').innerText = user.name;
+                document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
+                document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
+                
+                // Stats
+                const lastStat = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : null;
                 document.getElementById('cd-weight').innerText = lastStat ? lastStat.weight : '--';
                 document.getElementById('cd-fat').innerText = lastStat ? lastStat.fat : '--';
                 document.getElementById('cd-muscle').innerText = lastStat ? lastStat.muscle : '--';
 
-                // Historial Cliente (Sin indice complejo)
-                const histDiv = document.getElementById('client-detail-history');
-                histDiv.innerHTML = 'Cargando...';
+                // Semanal Cliente
+                dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
+
+                // Rutinas Cliente
+                const rList = document.getElementById('client-routines-list');
+                rList.innerHTML = 'Cargando...';
+                const rSnap = await getDocs(query(collection(db, "routines"), where("assignedTo", "==", uid)));
+                rList.innerHTML = '';
+                rSnap.forEach(d => {
+                    rList.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between"><span>${d.data().name}</span><i class="material-icons-round" style="color:red; cursor:pointer" onclick="window.admin.deleteRoutine('${d.id}')">delete</i></div>`;
+                });
+                
+                // Selector clonar
+                const cSel = document.getElementById('client-clone-select');
+                cSel.innerHTML = '<option disabled selected>Elegir Base...</option>';
+                const allRut = await getDocs(collection(db, "routines"));
+                const unicos = new Set();
+                allRut.forEach(d => { 
+                    if(d.data().assignedTo !== uid && !unicos.has(d.data().name)) {
+                        unicos.add(d.data().name);
+                        cSel.innerHTML += `<option value="${d.id}">${d.data().name}</option>`;
+                    }
+                });
+
+                // Historial Cliente (Sin indice)
+                const hList = document.getElementById('client-detail-history');
+                hList.innerHTML = 'Cargando...';
                 const wSnap = await getDocs(query(collection(db, "workouts"), where("userId", "==", uid)));
-                histDiv.innerHTML = '';
-                wSnap.forEach(wd => {
-                    const w = wd.data();
+                const workouts = [];
+                wSnap.forEach(d => workouts.push(d.data()));
+                workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+                
+                hList.innerHTML = '';
+                const mCounts = {};
+                workouts.slice(0,10).forEach(w => {
                     const d = new Date(w.date.seconds*1000).toLocaleDateString();
-                    histDiv.innerHTML += `<div class="history-item"><b>${d}</b> - ${w.data.name}<br>RPE: ${w.rpe}</div>`;
+                    if(w.data.exercises) w.data.exercises.forEach(e => mCounts[e.m] = (mCounts[e.m]||0)+1);
+                    hList.innerHTML += `<div class="history-item" onclick="window.profile.showWorkoutDetails(this)" data-json='${JSON.stringify(w)}'><b>${d}</b> - ${w.data.name}<br>RPE: ${w.rpe}</div>`;
+                });
+                
+                // Radar Chart
+                const ctx = document.getElementById('clientRadarChart').getContext('2d');
+                if(window.clientRadar) window.clientRadar.destroy();
+                window.clientRadar = new Chart(ctx, {
+                    type: 'radar',
+                    data: { labels: Object.keys(mCounts), datasets: [{label:'Series', data:Object.values(mCounts), backgroundColor:'rgba(57,255,20,0.2)', borderColor:'#39ff14'}] },
+                    options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white' }, ticks: { display: false } } } }
                 });
 
                 app.navTo('client-detail');
+            },
+
+            cloneRoutineFromClientView: async () => {
+                const rid = document.getElementById('client-clone-select').value;
+                if(!rid) return;
+                const original = await getDoc(doc(db, "routines", rid));
+                const data = original.data();
+                await addDoc(collection(db, "routines"), {
+                    name: data.name, exercises: data.exercises, assignedTo: state.currentClientId, createdAt: new Date()
+                });
+                alert("Clonada");
+                admin.viewClient(state.currentClientId);
+            },
+
+            deleteRoutine: async (id) => {
+                if(confirm("¿Borrar?")) {
+                    await deleteDoc(doc(db, "routines", id));
+                    if(state.currentClientId) admin.viewClient(state.currentClientId);
+                    else admin.renderExistingRoutines();
+                }
+            },
+            
+            renderExistingRoutines: async () => {
+                const div = document.getElementById('admin-routines-management');
+                div.innerHTML = 'Cargando...';
+                const snap = await getDocs(collection(db, "routines"));
+                div.innerHTML = '';
+                const seen = new Set();
+                snap.forEach(d => {
+                    const r = d.data();
+                    if(!seen.has(r.name)) {
+                        seen.add(r.name);
+                        div.innerHTML += `<div class="exercise-card"><h4>${r.name}</h4><small>${r.exercises.length} ejercicios</small></div>`;
+                    }
+                });
+            },
+
+            filterExercises: (term) => {
+                const sel = document.getElementById('admin-exercise-select');
+                sel.innerHTML = '';
+                EXERCISES.forEach((e,i) => {
+                    if(e.n.toLowerCase().includes(term.toLowerCase())) sel.innerHTML += `<option value="${i}">${e.n}</option>`;
+                });
             }
         };
 
         const profile = {
             render: () => {
                 document.getElementById('profile-name').innerText = state.profile.name;
-                // Gráfica de peso simple
-                if(state.profile.statsHistory) {
-                    const ctx = document.getElementById('weightChart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: {
-                            labels: state.profile.statsHistory.map(s => new Date(s.date.seconds*1000).toLocaleDateString()),
-                            datasets: [{label:'Peso', data:state.profile.statsHistory.map(s=>s.weight), borderColor:'#39ff14'}]
-                        }
-                    });
-                }
+                document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
+                document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
+                profile.loadRadar();
             },
+            
+            loadRadar: async () => {
+                const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+                const snap = await getDocs(q);
+                const counts = {};
+                snap.forEach(d => {
+                    const w = d.data();
+                    if(w.data.exercises) w.data.exercises.forEach(e => counts[e.m] = (counts[e.m]||0) + 1);
+                });
+                
+                const ctx = document.getElementById('radarChart').getContext('2d');
+                if(window.myRadar) window.myRadar.destroy();
+                window.myRadar = new Chart(ctx, {
+                    type: 'radar',
+                    data: { labels: Object.keys(counts), datasets: [{label:'Series', data:Object.values(counts), backgroundColor:'rgba(57,255,20,0.2)', borderColor:'#39ff14'}] },
+                    options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white' }, ticks: { display: false } } } }
+                });
+            },
+
             saveStats: async () => {
                 const w = document.getElementById('stats-weight').value;
                 const f = document.getElementById('stats-fat').value;
@@ -585,17 +875,33 @@
                 }
             },
             saveSettings: async () => {
-                const goal = document.getElementById('conf-weekly-goal').value;
-                const rest = document.getElementById('conf-rest-time').value;
-                await updateDoc(doc(db, "users", state.user.uid), {
-                    "settings.weeklyGoal": goal, "settings.restTime": rest
+                const g = parseInt(document.getElementById('conf-weekly-goal').value);
+                const r = parseInt(document.getElementById('conf-rest-time').value);
+                await updateDoc(doc(db, "users", state.user.uid), { "settings.weeklyGoal": g, "settings.restTime": r });
+                state.profile.settings = { weeklyGoal: g, restTime: r };
+                alert("Guardado");
+            },
+            
+            showWorkoutDetails: (el) => {
+                const w = JSON.parse(el.dataset.json);
+                const modal = document.getElementById('workout-detail-modal');
+                const content = document.getElementById('wd-content');
+                document.getElementById('wd-title').innerText = w.data.name;
+                let html = `<p>RPE: ${w.rpe} | Notas: ${w.notes}</p>`;
+                w.data.exercises.forEach(e => {
+                    html += `<h4>${e.n}</h4><ul>`;
+                    e.sets.forEach(s => html += `<li>${s.reps} reps x ${s.kg} kg</li>`);
+                    html += `</ul>`;
                 });
-                state.profile.settings = { weeklyGoal: goal, restTime: rest };
-                alert("Ajustes guardados");
-            }
+                content.innerHTML = html;
+                modal.classList.remove('hidden');
+            },
+            
+            requestNotify: () => { Notification.requestPermission().then(p => { if(p==='granted') new Notification("Activado"); }); },
+            testSound: () => { state.sounds.beep.play(); }
         };
 
-        // EXPORTAR A WINDOW PARA QUE EL HTML LO VEA
+        // EXPORTAR A WINDOW
         window.app = app;
         window.workoutManager = workoutManager;
         window.admin = admin;
