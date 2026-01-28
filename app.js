@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// --- CONFIG ---
+// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,23 +17,28 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null };
+const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], allClients: [], sounds: { beep: document.getElementById('timer-beep') }, wakeLock: null, currentClientId: null };
 
-// --- GESTORES ---
 const app = {
     init: () => {
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
-                const docSnap = await getDoc(doc(db, "users", user.uid));
-                if(docSnap.exists()) {
-                    state.profile = docSnap.data();
-                    if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
-                    if(!state.profile.records) state.profile.records = {};
-                    app.handleLoginSuccess();
-                } else { signOut(auth); }
-            } else { app.navTo('login'); setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500); }
+                try {
+                    const docSnap = await getDoc(doc(db, "users", user.uid));
+                    if (docSnap.exists()) {
+                        state.profile = docSnap.data();
+                        if (!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
+                        if (!state.profile.records) state.profile.records = {};
+                        app.handleLoginSuccess();
+                    } else { signOut(auth); }
+                } catch(e) { console.error(e); }
+            } else {
+                app.navTo('login');
+                setTimeout(() => document.getElementById('splash-screen').classList.add('hidden'), 500);
+            }
         });
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
         document.getElementById('exercise-search').addEventListener('input', (e) => admin.filterExercises(e.target.value));
@@ -52,27 +57,23 @@ const app = {
     handleLoginSuccess: () => {
         const btn = document.getElementById('admin-btn');
         if(state.profile.role === 'admin' || state.profile.role === 'coach') { btn.classList.remove('hidden'); admin.loadUsers(); } else { btn.classList.add('hidden'); }
-        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
         if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         document.getElementById('splash-screen').classList.add('hidden');
     },
-    navTo: (view) => {
+    navTo: (viewId) => {
         document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
-        document.getElementById('view-'+view).classList.remove('hidden'); document.getElementById('view-'+view).classList.add('active');
-        const isAuth = ['login', 'register'].includes(view);
+        document.getElementById('view-'+viewId).classList.remove('hidden'); document.getElementById('view-'+viewId).classList.add('active');
+        const isAuth = ['login', 'register'].includes(viewId);
         document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || view === 'workout');
-        if(view === 'dashboard') { document.querySelector('[onclick*="dashboard"]').classList.add('active'); dashboard.render(); }
-        else document.querySelector('[onclick*="dashboard"]').classList.remove('active');
-        if(view === 'profile') { document.querySelector('[onclick*="profile"]').classList.add('active'); profile.render(); }
-        else document.querySelector('[onclick*="profile"]').classList.remove('active');
+        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
+        if(viewId === 'dashboard') dashboard.render();
+        if(viewId === 'profile') profile.render();
+        if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
     },
-    // FIX: USAR EMOJIS DIRECTOS
     showToast: (msg, type='normal') => {
         const div = document.createElement('div'); div.className = `toast ${type}`;
-        const icon = type==='gold' ? '🏆' : '✅';
-        div.innerHTML = `<span style="font-size:20px; margin-right:10px">${icon}</span> ${msg}`;
+        div.innerHTML = `<i>${type==='gold'?'🏆':'✅'}</i> ${msg}`;
         document.getElementById('toast-container').appendChild(div); setTimeout(()=>div.remove(), 3000);
     }
 };
@@ -102,15 +103,19 @@ const admin = {
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
+        
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
+        
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
+        
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
         const snapshot = await getDocs(q);
         const workouts = []; snapshot.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+        
         hList.innerHTML = ''; const mCounts = {};
         if(workouts.length===0) hList.innerHTML = '<p style="text-align:center">Sin historial</p>';
         workouts.slice(0,10).forEach(w => {
@@ -121,6 +126,7 @@ const admin = {
             div.onclick = () => profile.showWorkoutDetails(w);
             hList.appendChild(div);
         });
+        
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
             const lineData = [...(user.statsHistory || [])].sort((a,b) => a.date.seconds - b.date.seconds);
@@ -136,6 +142,7 @@ const admin = {
         const snap = await getDocs(q); div.innerHTML = '';
         if(snap.empty) div.innerHTML = '<p>Sin rutinas</p>';
         snap.forEach(d => div.innerHTML += `<div style="background:#222; padding:10px; margin-bottom:5px; border-radius:5px; display:flex; justify-content:space-between"><span>${d.data().name}</span><i class="material-icons-round" style="color:red; cursor:pointer" onclick="window.admin.deleteRoutine('${d.id}')">delete</i></div>`);
+        
         const sel = document.getElementById('client-clone-select'); sel.innerHTML = '<option disabled selected>Elegir Base...</option>';
         const all = await getDocs(collection(db, "routines")); const seen = new Set();
         all.forEach(d => { if(d.data().assignedTo !== uid && !seen.has(d.data().name)) { seen.add(d.data().name); sel.innerHTML += `<option value="${d.id}">${d.data().name}</option>`; } });
@@ -198,13 +205,14 @@ const dashboard = {
         try {
             const now = new Date(); const day = now.getDay() || 7;
             const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
+            
             const q = query(collection(db, "workouts"), where("userId", "==", uid));
             const snap = await getDocs(q);
             let count = 0;
             snap.forEach(d => { if(d.data().date.seconds * 1000 >= start.getTime()) count++; });
             document.getElementById(cid).innerText = `${count}/${goal}`;
             document.getElementById(bid).style.width = Math.min((count/goal)*100, 100) + '%';
-        } catch(e) { console.log(e); }
+        } catch(e) {}
     }
 };
 
@@ -219,6 +227,7 @@ const workoutManager = {
             workouts.sort((a,b) => b.date.seconds - a.date.seconds);
             const last = workouts.find(w => w.data.name === rname);
             if(last) state.lastWorkoutData = last.data;
+
             state.activeWorkout = { name: rname, start: Date.now(), exercises: data.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) })) };
             localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout));
             try { if(navigator.wakeLock) state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
@@ -267,6 +276,7 @@ const workoutManager = {
         }
         workoutManager.saveLocal(); workoutManager.uiInit();
     },
+    saveLocal: () => localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)),
     startRest: (sec) => {
         document.getElementById('rest-modal').classList.remove('hidden');
         let r = sec;
