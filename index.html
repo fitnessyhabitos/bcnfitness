@@ -135,8 +135,8 @@
             </div>
             
             <div class="section-card">
-                <h4>Configuración Visual</h4>
-                <div style="display:flex; flex-direction:column; gap:10px">
+                <h4>Configuración Atleta</h4>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px">
                      <label class="toggle-row"><input type="checkbox" id="adm-perm-folds" onchange="window.admin.updateClientPerms()"> 📐 Activar Pliegues (JP7)</label>
                      <label class="toggle-row"><input type="checkbox" id="adm-perm-measures" onchange="window.admin.updateClientPerms()"> 📏 Activar Medidas</label>
                 </div>
@@ -178,13 +178,11 @@
                 <h2 id="profile-name">...</h2>
                 <span id="profile-role-badge" class="role-badge">Cliente</span>
             </div>
-            
             <div class="profile-tabs">
                 <button id="tab-btn-stats" class="tab-btn active" onclick="window.profile.switchTab('stats')">Progreso</button>
                 <button id="tab-btn-history" class="tab-btn" onclick="window.profile.switchTab('history')">Historial</button>
                 <button id="tab-btn-config" class="tab-btn" onclick="window.profile.switchTab('config')">Ajustes</button>
             </div>
-            
             <div id="tab-stats" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
@@ -192,14 +190,14 @@
                     <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
-                
+
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
                     
                     <div id="extra-buttons-area" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap">
-                        <button id="btn-toggle-folds" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('folds-inputs').classList.toggle('hidden')">📉 PLIEGUES</button>
-                        <button id="btn-toggle-meas" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('measures-inputs').classList.toggle('hidden')">📏 MEDIDAS</button>
+                        <button id="btn-toggle-folds" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('folds-inputs').classList.toggle('hidden')">📉 AÑADIR PLIEGUES</button>
+                        <button id="btn-toggle-meas" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('measures-inputs').classList.toggle('hidden')">📏 AÑADIR MEDIDAS</button>
                     </div>
 
                     <div id="folds-inputs" class="hidden" style="margin-top:10px; background:#111; padding:10px; border-radius:5px">
@@ -210,7 +208,7 @@
                             <input type="number" id="fold-triceps" placeholder="Tríc.">
                             <input type="number" id="fold-subesc" placeholder="Sub.">
                             <input type="number" id="fold-abdomen" placeholder="Abd.">
-                            <input type="number" id="fold-supra" placeholder="Sup.">
+                            <input type="number" id="fold-supra" placeholder="Supra.">
                             <input type="number" id="fold-muslo" placeholder="Muslo">
                         </div>
                     </div>
@@ -240,7 +238,6 @@
 
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
-            
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
@@ -248,29 +245,17 @@
                     <label>Objetivo Semanal (Días):</label><input type="number" id="conf-weekly-goal" placeholder="4">
                     <label>Tiempo Descanso (seg):</label><input type="number" id="conf-rest-time" placeholder="60">
                     <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR CAMBIOS</button>
-                    <div class="settings-row" style="margin-top:20px; display:flex; gap:10px">
-                        <button class="btn-icon-large" onclick="window.profile.requestNotify()">🔔 Avisos</button>
-                        <button class="btn-icon-large" onclick="window.profile.testSound()">🔊 Test</button>
-                    </div>
                 </div>
             </div>
         </section>
-
     </main>
 
     <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>Editar Usuario</h3>
             <input type="text" id="edit-user-name" placeholder="Nombre">
-            <select id="edit-user-role">
-                <option value="cliente">Cliente</option>
-                <option value="atleta">Atleta</option>
-                <option value="coach">Coach (Admin)</option>
-            </select>
-            <div style="display:flex; gap:10px; margin-top:15px">
-                <button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button>
-                <button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button>
-            </div>
+            <select id="edit-user-role"><option value="cliente">Cliente</option><option value="atleta">Atleta</option><option value="coach">Coach (Admin)</option></select>
+            <div style="display:flex; gap:10px; margin-top:15px"><button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button><button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button></div>
         </div>
     </div>
 
@@ -284,28 +269,15 @@
     <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>¿QUÉ TAL FUE?</h3>
-            <div class="traffic-light-container">
-                <button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button>
-                <button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button>
-                <button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button>
-            </div>
+            <div class="traffic-light-container"><button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button><button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button><button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button></div>
             <textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea>
             <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button>
         </div>
     </div>
     <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;">
-        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
-                <h3 style="margin:0" id="wd-title">Detalles</h3>
-                <button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button>
-            </div>
-            <div id="wd-content"></div>
-        </div>
+        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px"><h3 style="margin:0" id="wd-title">Detalles</h3><button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button></div><div id="wd-content"></div></div>
     </div>
-    <nav id="bottom-nav" class="hidden">
-        <div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
-        <div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div>
-    </nav>
+    <nav id="bottom-nav" class="hidden"><div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div><div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div></nav>
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
     <script type="module" src="app.js"></script>
     <script>setTimeout(function(){var s=document.getElementById('splash-screen');if(s&&!s.classList.contains('hidden'))s.style.display='none';},3000);</script>
