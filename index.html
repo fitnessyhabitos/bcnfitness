@@ -28,7 +28,9 @@
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')"><i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i></button>
+            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')">
+                <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
+            </button>
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
@@ -130,6 +132,21 @@
                     <div class="progress-bar-bg"><div id="client-weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
                 </div>
             </div>
+
+            <div class="section-card">
+                <h4>Plan Nutricional</h4>
+                <div class="row">
+                    <div style="width:48%">
+                        <label style="font-size:10px; color:#888">Kcal Objetivo</label>
+                        <input type="number" id="admin-set-kcal" placeholder="Ej: 2500">
+                    </div>
+                    <div style="width:48%">
+                        <label style="font-size:10px; color:#888">Agua (L) Objetivo</label>
+                        <input type="number" id="admin-set-water" placeholder="Ej: 3">
+                    </div>
+                </div>
+                <button class="btn-secondary" onclick="window.admin.saveNutrition()">GUARDAR PLAN</button>
+            </div>
             
             <div class="section-card" style="border-left: 4px solid var(--neon-green)">
                 <h4>Rutinas Asignadas</h4>
@@ -139,11 +156,9 @@
                     <div style="display:flex; gap:10px"><select id="client-clone-select" style="margin:0"></select><button class="btn-secondary" style="width:auto; margin:0" onclick="window.admin.cloneRoutineFromClientView()">+</button></div>
                 </div>
             </div>
-
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
-            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
 
@@ -166,7 +181,14 @@
                 </div>
                 <input type="file" id="avatar-input" hidden accept="image/*" onchange="window.profile.uploadPhoto(this)">
                 <h2 id="profile-name">...</h2>
-                <span id="profile-role-badge" class="role-badge">Cliente</span>
+                <div style="display:flex; justify-content:center; gap:10px; align-items:center; margin-top:5px">
+                    <span id="profile-role-badge" class="role-badge">Cliente</span>
+                    <select id="profile-phase-selector" class="hidden" style="width:auto; padding:2px; font-size:12px; margin:0; background:#333; border:none; color:white" onchange="window.profile.updatePhase(this.value)">
+                        <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Volumen">Volumen</option>
+                        <option value="Definición">Definición</option>
+                    </select>
+                </div>
             </div>
             <div class="profile-tabs">
                 <button id="tab-btn-stats" class="tab-btn active" onclick="window.profile.switchTab('stats')">Progreso</button>
@@ -180,15 +202,26 @@
                     <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
+
+                <div id="nutrition-target-card" class="section-card hidden" style="text-align:center; background: rgba(57,255,20,0.05); border:1px solid var(--neon-green)">
+                    <div class="row">
+                        <div><strong id="target-kcal" style="font-size:24px; color:white">--</strong><br><small>Kcal Meta</small></div>
+                        <div><strong id="target-water" style="font-size:24px; color:#00d4ff">--</strong><br><small>Litros Agua</small></div>
+                    </div>
+                </div>
+
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
                     <div id="athlete-fields"></div> 
                     <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
                 </div>
+                
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
+                
+                <div id="athlete-charts-area"></div>
+
                 <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
-                <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
@@ -222,6 +255,7 @@
             <div style="display:flex; gap:10px; margin-top:15px"><button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button><button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button></div>
         </div>
     </div>
+    
     <div id="toast-container"></div>
     <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
         <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
