@@ -3,7 +3,6 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -18,8 +17,6 @@ const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null, editingUserId: null };
-
-// HELPER NORMALIZAR
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const app = {
