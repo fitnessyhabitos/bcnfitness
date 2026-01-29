@@ -134,18 +134,20 @@
             </div>
 
             <div class="section-card">
-                <h4>Plan Nutricional</h4>
-                <div class="row">
-                    <div style="width:48%">
-                        <label style="font-size:10px; color:#888">Kcal Objetivo</label>
-                        <input type="number" id="admin-set-kcal" placeholder="Ej: 2500">
-                    </div>
-                    <div style="width:48%">
-                        <label style="font-size:10px; color:#888">Agua (L) Objetivo</label>
-                        <input type="number" id="admin-set-water" placeholder="Ej: 3">
-                    </div>
+                <h4>Configuración Cliente</h4>
+                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px">
+                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-nutrition" onchange="window.admin.updateClientConfig()"> 🍎 Nutrición (Kcal/Agua)</label>
+                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-folds" onchange="window.admin.updateClientConfig()"> 📐 Pliegues (JP7)</label>
+                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-measures" onchange="window.admin.updateClientConfig()"> 📏 Medidas (Perímetros)</label>
                 </div>
-                <button class="btn-secondary" onclick="window.admin.saveNutrition()">GUARDAR PLAN</button>
+                
+                <div id="admin-nutrition-inputs" class="hidden">
+                    <div class="row">
+                        <div style="width:48%"><label style="font-size:10px">Kcal Meta</label><input type="number" id="admin-set-kcal"></div>
+                        <div style="width:48%"><label style="font-size:10px">Agua (L)</label><input type="number" id="admin-set-water"></div>
+                    </div>
+                    <button class="btn-secondary" onclick="window.admin.saveNutrition()">GUARDAR PLAN</button>
+                </div>
             </div>
             
             <div class="section-card" style="border-left: 4px solid var(--neon-green)">
@@ -159,6 +161,7 @@
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
+            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
 
@@ -211,17 +214,46 @@
                 </div>
 
                 <div class="section-card">
-                    <h3>Actualizar Medidas</h3>
+                    <h3>Registro Básico</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
-                    <div id="athlete-fields"></div> 
-                    <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
+                    <button class="btn-secondary" onclick="window.profile.saveBasicStats()">GUARDAR BÁSICOS</button>
+                </div>
+
+                <div id="card-folds" class="section-card hidden">
+                    <div class="athlete-section-title"><span>Pliegues (mm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('pliegues.png')">info</i></div>
+                    <div class="measure-grid">
+                        <input type="number" id="fold-pecho" placeholder="Pecho">
+                        <input type="number" id="fold-axila" placeholder="Axila">
+                        <input type="number" id="fold-triceps" placeholder="Tríceps">
+                        <input type="number" id="fold-subescapular" placeholder="Subesc.">
+                        <input type="number" id="fold-abdomen" placeholder="Abdomen">
+                        <input type="number" id="fold-suprailiaco" placeholder="Supra.">
+                        <input type="number" id="fold-muslo" placeholder="Muslo">
+                    </div>
+                    <button class="btn-secondary" onclick="window.profile.saveFolds()">GUARDAR PLIEGUES</button>
+                </div>
+
+                <div id="card-measures" class="section-card hidden">
+                    <div class="athlete-section-title"><span>Perímetros (cm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('medidas.jpg')">info</i></div>
+                    <div class="measure-grid">
+                        <input type="number" id="meas-cuello" placeholder="Cuello">
+                        <input type="number" id="meas-hombros" placeholder="Hombros">
+                        <input type="number" id="meas-brazo" placeholder="Brazo">
+                        <input type="number" id="meas-cintura" placeholder="Cintura">
+                        <input type="number" id="meas-abdomen" placeholder="Abdomen">
+                        <input type="number" id="meas-cadera" placeholder="Cadera">
+                        <input type="number" id="meas-muslo" placeholder="Muslo">
+                    </div>
+                    <button class="btn-secondary" onclick="window.profile.saveMeasures()">GUARDAR MEDIDAS</button>
                 </div>
                 
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
-                
-                <div id="athlete-charts-area"></div>
-
                 <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
+                <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
+                
+                <div id="chart-folds-container" class="section-card hidden"><h3>Suma Pliegues (mm)</h3><div class="chart-container"><canvas id="foldsChart"></canvas></div></div>
+                <div id="chart-measures-container" class="section-card hidden"><h3>Cintura (cm)</h3><div class="chart-container"><canvas id="measuresChart"></canvas></div></div>
+
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
