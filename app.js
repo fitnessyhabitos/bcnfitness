@@ -240,6 +240,11 @@ const admin = {
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
+        
+        // Cargar Kcal/Water en Admin
+        document.getElementById('admin-set-kcal').value = user.assignedNutrition?.kcal || '';
+        document.getElementById('admin-set-water').value = user.assignedNutrition?.water || '';
+
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
@@ -266,6 +271,16 @@ const admin = {
         }
         app.navTo('client-detail');
     },
+    
+    saveNutrition: async () => {
+        const k = document.getElementById('admin-set-kcal').value;
+        const w = document.getElementById('admin-set-water').value;
+        if(state.currentClientId) {
+            await updateDoc(doc(db, "users", state.currentClientId), { assignedNutrition: { kcal: k, water: w } });
+            alert("Plan Guardado");
+        }
+    },
+
     renderClientRoutines: async (uid) => {
         const div = document.getElementById('client-routines-list'); div.innerHTML = 'Cargando...';
         const q = query(collection(db, "routines"), where("assignedTo", "==", uid));
@@ -446,29 +461,35 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         
-        // --- INYECCIÓN CONDICIONAL ATLETA ---
+        // --- LOGICA ATLETA ---
         const container = document.getElementById('athlete-fields');
+        const phaseSel = document.getElementById('profile-phase-selector');
+        const nutriCard = document.getElementById('nutrition-target-card');
+        const chartsArea = document.getElementById('athlete-charts-area');
+
         if(state.profile.clientType === 'atleta') {
+            phaseSel.classList.remove('hidden');
+            if(state.profile.settings?.phase) phaseSel.value = state.profile.settings.phase;
+            
+            // MOSTRAR META NUTRICIONAL (SOLO LECTURA)
+            if(state.profile.assignedNutrition) {
+                nutriCard.classList.remove('hidden');
+                document.getElementById('target-kcal').innerText = state.profile.assignedNutrition.kcal || '--';
+                document.getElementById('target-water').innerText = (state.profile.assignedNutrition.water || '--') + ' L';
+            }
+
             container.innerHTML = `
                 <div class="athlete-fields-container">
-                    <div class="athlete-section-title"><span>Fase Actual</span></div>
-                    <select id="athlete-phase" style="margin-bottom:15px">
-                        <option value="Volumen">Volumen</option>
-                        <option value="Mantenimiento">Mantenimiento</option>
-                        <option value="Definición">Definición</option>
-                    </select>
-
                     <div class="athlete-section-title"><span>Pliegues (mm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('pliegues.png')">info</i></div>
                     <div class="measure-grid">
                         <input type="number" id="fold-pecho" placeholder="Pecho">
                         <input type="number" id="fold-axila" placeholder="Axila">
                         <input type="number" id="fold-triceps" placeholder="Tríceps">
-                        <input type="number" id="fold-subescapular" placeholder="Subescapular">
+                        <input type="number" id="fold-subescapular" placeholder="Subesc.">
                         <input type="number" id="fold-abdomen" placeholder="Abdomen">
-                        <input type="number" id="fold-suprailiaco" placeholder="Suprailíaco">
+                        <input type="number" id="fold-suprailiaco" placeholder="Supra.">
                         <input type="number" id="fold-muslo" placeholder="Muslo">
                     </div>
-
                     <div class="athlete-section-title" style="margin-top:15px"><span>Perímetros (cm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('medidas.jpg')">info</i></div>
                     <div class="measure-grid">
                         <input type="number" id="meas-cuello" placeholder="Cuello">
@@ -479,18 +500,18 @@ const profile = {
                         <input type="number" id="meas-cadera" placeholder="Cadera">
                         <input type="number" id="meas-muslo" placeholder="Muslo">
                     </div>
-
-                    <div class="athlete-section-title" style="margin-top:15px"><span>Diario</span></div>
-                    <div class="measure-grid">
-                         <input type="number" id="daily-water" placeholder="Agua (L)">
-                         <input type="number" id="daily-kcal" placeholder="Kcal">
-                    </div>
                 </div>`;
                 
-                // Cargar ultimo valor de fase si existe
-                if(state.profile.settings?.phase) document.getElementById('athlete-phase').value = state.profile.settings.phase;
+            // AÑADIR CANVAS PARA GRAFICAS ATLETA
+            chartsArea.innerHTML = `
+                <div class="section-card"><h3>Suma Pliegues (mm)</h3><div class="chart-container"><canvas id="foldsChart"></canvas></div></div>
+                <div class="section-card"><h3>Perímetros Clave (cm)</h3><div class="chart-container"><canvas id="measuresChart"></canvas></div></div>
+            `;
         } else {
+            phaseSel.classList.add('hidden');
+            nutriCard.classList.add('hidden');
             container.innerHTML = '';
+            chartsArea.innerHTML = '';
         }
 
         profile.renderCharts(); profile.loadRadar();
@@ -498,6 +519,11 @@ const profile = {
         profile.switchTab('stats');
     },
     
+    updatePhase: async (val) => {
+        await updateDoc(doc(db, "users", state.user.uid), { "settings.phase": val });
+        app.showToast("Fase actualizada");
+    },
+
     calculateGlobalStats: async () => {
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
@@ -550,19 +576,14 @@ const profile = {
 
         // SI ES ATLETA, GUARDAMOS EXTROS
         if(state.profile.clientType === 'atleta') {
-            const phase = document.getElementById('athlete-phase').value;
-            // Guardar fase en settings
-            await updateDoc(doc(db, "users", state.user.uid), { "settings.phase": phase });
-            
-            // Guardar pliegues y medidas
             const folds = {
-                pecho: document.getElementById('fold-pecho').value,
-                axila: document.getElementById('fold-axila').value,
-                triceps: document.getElementById('fold-triceps').value,
-                subescapular: document.getElementById('fold-subescapular').value,
-                abdomen: document.getElementById('fold-abdomen').value,
-                suprailiaco: document.getElementById('fold-suprailiaco').value,
-                muslo: document.getElementById('fold-muslo').value
+                pecho: document.getElementById('fold-pecho').value || 0,
+                axila: document.getElementById('fold-axila').value || 0,
+                triceps: document.getElementById('fold-triceps').value || 0,
+                subescapular: document.getElementById('fold-subescapular').value || 0,
+                abdomen: document.getElementById('fold-abdomen').value || 0,
+                suprailiaco: document.getElementById('fold-suprailiaco').value || 0,
+                muslo: document.getElementById('fold-muslo').value || 0
             };
              const measures = {
                 cuello: document.getElementById('meas-cuello').value,
@@ -573,14 +594,12 @@ const profile = {
                 cadera: document.getElementById('meas-cadera').value,
                 muslo: document.getElementById('meas-muslo').value
             };
-            const daily = {
-                water: document.getElementById('daily-water').value,
-                kcal: document.getElementById('daily-kcal').value
-            };
-            newEntry = {...newEntry, folds, measures, daily, phase};
+            // Calculamos suma de pliegues
+            const sumFolds = Object.values(folds).reduce((a,b) => parseFloat(a)+parseFloat(b), 0);
+            newEntry = {...newEntry, folds, measures, sumFolds};
         }
 
-        if(w) { 
+        if(w || (state.profile.clientType==='atleta')) { 
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
@@ -650,6 +669,19 @@ const profile = {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
             window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
+            
+            // GRAFICAS ATLETA (SI EXISTEN DATOS Y CANVAS)
+            if(state.profile.clientType === 'atleta') {
+                // Suma Pliegues
+                window.chartHelpers.renderLine('foldsChart', history, 'sumFolds', '#FFD700');
+                // Medidas (Multilinea complejo, simplificamos a Cintura)
+                // Para simplificar renderizamos solo Cintura aquí, o se podría hacer un gráfico complejo
+                if(history.length > 0 && history[0].measures) {
+                     // Hack para mostrar medidas: Mapeamos el historial para extraer "cintura" como si fuera un campo directo
+                     const waistData = history.map(h => ({...h, cintura: h.measures?.cintura || 0}));
+                     window.chartHelpers.renderLine('measuresChart', waistData, 'cintura', '#00d4ff');
+                }
+            }
         }
     }
 };
