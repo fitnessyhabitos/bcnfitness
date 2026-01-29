@@ -354,11 +354,12 @@ const workoutManager = {
                 if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
-                const bg = s.done ? 'set-completed' : ''; // Clase para el contenedor
-                const dis = s.done ? 'disabled' : ''; // Atributo DISABLED
+                const bg = s.done ? 'set-completed' : ''; // CLASE MAGICA
+                const dis = s.done ? 'disabled' : ''; // ATRIBUTO MAGICO
                 
+                // IMPORTANTE: ID unico para cada fila
                 html += `
-                <div class="set-row ${bg}">
+                <div id="set-row-${idx}-${i}" class="set-row ${bg}">
                     <span style="color:#555">#${i+1}</span>
                     <span style="font-size:10px; color:#888">${prev}</span>
                     <input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)">
@@ -376,11 +377,32 @@ const workoutManager = {
         }, 1000);
     },
     updateSet: (ei, si, f, v) => { state.activeWorkout.exercises[ei].sets[si][f] = v; localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)); },
+    
+    // --- NUEVA LÓGICA INSTANTÁNEA ---
     toggleSet: (ei, si) => {
-        const s = state.activeWorkout.exercises[ei].sets[si]; s.done = !s.done;
+        const s = state.activeWorkout.exercises[ei].sets[si]; 
+        s.done = !s.done; // Cambiar estado
+        
+        // 1. ACTUALIZACIÓN VISUAL INMEDIATA (Sin recargar toda la lista)
+        const row = document.getElementById(`set-row-${ei}-${si}`);
+        if(row) {
+            if(s.done) {
+                row.classList.add('set-completed');
+                row.querySelector('.check-box').classList.add('checked');
+                row.querySelectorAll('input').forEach(inp => inp.disabled = true);
+            } else {
+                row.classList.remove('set-completed');
+                row.querySelector('.check-box').classList.remove('checked');
+                row.querySelectorAll('input').forEach(inp => inp.disabled = false);
+            }
+        }
+
+        // 2. LÓGICA DE NEGOCIO
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
+            
+            // Record
             if(s.kg && s.reps) {
                 const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
                 const name = state.activeWorkout.exercises[ei].n;
@@ -393,7 +415,9 @@ const workoutManager = {
                 }
             }
         }
-        workoutManager.saveLocal(); workoutManager.uiInit();
+        
+        // 3. GUARDAR EN SEGUNDO PLANO
+        workoutManager.saveLocal();
     },
     startRest: (sec) => {
         document.getElementById('rest-modal').classList.remove('hidden');
