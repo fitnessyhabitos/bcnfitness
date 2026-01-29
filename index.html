@@ -16,20 +16,25 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div id="splash-screen">
         <img src="logo.png" alt="BCN Fitness" class="pulse-logo" onerror="this.src='https://placehold.co/150/000000/39ff14?text=BCN'">
         <h1 style="color:white; margin-top:20px; font-family:'Russo One'">BCN FITNESS</h1>
     </div>
+
     <header id="app-header" class="hidden">
         <div style="display:flex; align-items:center; gap:10px">
             <img src="logo.png" alt="Logo" style="height:30px; border-radius:50%">
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')"><i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i></button>
+            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')">
+                <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
+            </button>
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
+
     <main id="main-container">
         <section id="view-login" class="view active">
             <div class="login-wrapper" style="text-align:center; padding-top:20px">
@@ -51,6 +56,7 @@
                 </div>
             </div>
         </section>
+
         <section id="view-register" class="view hidden">
             <h2 class="section-title">NUEVO PERFIL</h2>
             <form id="register-form">
@@ -65,6 +71,7 @@
                 <button type="button" class="btn-text" onclick="window.app.navTo('login')">Cancelar</button>
             </form>
         </section>
+
         <section id="view-dashboard" class="view hidden">
             <div id="pending-approval" class="hidden warning-box">⚠️ Tu cuenta espera aprobación.</div>
             <div class="section-card" id="weekly-progress-card">
@@ -74,12 +81,14 @@
             <h3>Tus Rutinas</h3>
             <div id="routines-list" class="card-list"></div>
         </section>
+
         <section id="view-admin" class="view hidden">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
                 <h3 style="color:var(--neon-green); margin:0">PANEL COACH</h3>
                 <button class="icon-btn" onclick="window.admin.refreshAll()"><i class="material-icons-round">refresh</i></button>
             </div>
             <div class="section-card"><h4>Clientes</h4><div id="admin-users-list" class="users-list-container"></div></div>
+            
             <div class="section-card" id="routine-editor-card">
                 <h4 id="routine-editor-title">Crear Rutina Base</h4>
                 <input type="text" id="new-routine-name" placeholder="Nombre Rutina (Ej: Pierna A)">
@@ -95,6 +104,7 @@
                     <button class="btn-secondary hidden" id="cancel-edit-btn" onclick="window.admin.cancelEdit()">CANCELAR</button>
                 </div>
             </div>
+
             <div class="section-card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
                     <h4>Todas las Rutinas</h4>
@@ -103,11 +113,13 @@
                 <div id="admin-routines-management" class="users-list-container"></div>
             </div>
         </section>
+
         <section id="view-client-detail" class="view hidden">
             <div class="workout-sticky-header">
                 <button class="icon-btn" onclick="window.app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
+            
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto; border-radius:50%; object-fit:cover">
                 <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
@@ -121,6 +133,15 @@
                     <div class="progress-bar-bg"><div id="client-weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
                 </div>
             </div>
+            
+            <div class="section-card">
+                <h4>Configuración Visual</h4>
+                <div style="display:flex; flex-direction:column; gap:10px">
+                     <label class="toggle-row"><input type="checkbox" id="adm-perm-folds" onchange="window.admin.updateClientPerms()"> 📐 Activar Pliegues (JP7)</label>
+                     <label class="toggle-row"><input type="checkbox" id="adm-perm-measures" onchange="window.admin.updateClientPerms()"> 📏 Activar Medidas</label>
+                </div>
+            </div>
+
             <div class="section-card" style="border-left: 4px solid var(--neon-green)">
                 <h4>Rutinas Asignadas</h4>
                 <div id="client-routines-list"></div>
@@ -135,6 +156,7 @@
             <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
+
         <section id="view-workout" class="view hidden">
             <div class="workout-sticky-header">
                 <div class="timer-box"><span class="timer-label">TIEMPO</span><span id="global-timer">00:00</span></div>
@@ -145,6 +167,7 @@
             </div>
             <div id="active-exercises-container"></div>
         </section>
+
         <section id="view-profile" class="view hidden">
             <div class="profile-header">
                 <div class="avatar-container" onclick="document.getElementById('avatar-input').click()">
@@ -155,11 +178,13 @@
                 <h2 id="profile-name">...</h2>
                 <span id="profile-role-badge" class="role-badge">Cliente</span>
             </div>
+            
             <div class="profile-tabs">
                 <button id="tab-btn-stats" class="tab-btn active" onclick="window.profile.switchTab('stats')">Progreso</button>
                 <button id="tab-btn-history" class="tab-btn" onclick="window.profile.switchTab('history')">Historial</button>
                 <button id="tab-btn-config" class="tab-btn" onclick="window.profile.switchTab('config')">Ajustes</button>
             </div>
+            
             <div id="tab-stats" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
@@ -167,16 +192,55 @@
                     <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
+                
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
-                    <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
+                    
+                    <div id="extra-buttons-area" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap">
+                        <button id="btn-toggle-folds" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('folds-inputs').classList.toggle('hidden')">📉 PLIEGUES</button>
+                        <button id="btn-toggle-meas" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('measures-inputs').classList.toggle('hidden')">📏 MEDIDAS</button>
+                    </div>
+
+                    <div id="folds-inputs" class="hidden" style="margin-top:10px; background:#111; padding:10px; border-radius:5px">
+                        <h5 style="color:var(--neon-green); margin:0 0 10px 0">Pliegues JP7 (mm)</h5>
+                        <div class="measure-grid">
+                            <input type="number" id="fold-pecho" placeholder="Pecho">
+                            <input type="number" id="fold-axila" placeholder="Axila">
+                            <input type="number" id="fold-triceps" placeholder="Tríc.">
+                            <input type="number" id="fold-subesc" placeholder="Sub.">
+                            <input type="number" id="fold-abdomen" placeholder="Abd.">
+                            <input type="number" id="fold-supra" placeholder="Sup.">
+                            <input type="number" id="fold-muslo" placeholder="Muslo">
+                        </div>
+                    </div>
+
+                    <div id="measures-inputs" class="hidden" style="margin-top:10px; background:#111; padding:10px; border-radius:5px">
+                        <h5 style="color:var(--neon-green); margin:0 0 10px 0">Perímetros (cm)</h5>
+                        <div class="measure-grid">
+                            <input type="number" id="meas-cuello" placeholder="Cuello">
+                            <input type="number" id="meas-hombros" placeholder="Homb.">
+                            <input type="number" id="meas-brazo" placeholder="Brazo">
+                            <input type="number" id="meas-cintura" placeholder="Cint.">
+                            <input type="number" id="meas-abdomen" placeholder="Abd.">
+                            <input type="number" id="meas-cadera" placeholder="Cad.">
+                            <input type="number" id="meas-muslo" placeholder="Muslo">
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR TODO</button>
                 </div>
+
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
                 <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
                 <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
+                
+                <div id="card-chart-folds" class="section-card hidden"><h3>Suma Pliegues (mm)</h3><div class="chart-container"><canvas id="foldsChart"></canvas></div></div>
+                <div id="card-chart-meas" class="section-card hidden"><h3>Cintura (cm)</h3><div class="chart-container"><canvas id="measChart"></canvas></div></div>
+
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
+            
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
@@ -191,7 +255,9 @@
                 </div>
             </div>
         </section>
+
     </main>
+
     <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>Editar Usuario</h3>
@@ -207,6 +273,7 @@
             </div>
         </div>
     </div>
+
     <div id="toast-container"></div>
     <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
         <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
