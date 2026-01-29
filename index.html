@@ -9,6 +9,7 @@
     <link rel="apple-touch-icon" href="logo.png">
     <link rel="icon" href="logo.png" type="image/png">
     <meta name="theme-color" content="#000000">
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
@@ -85,7 +86,7 @@
         <section id="view-admin" class="view hidden">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
                 <h3 style="color:var(--neon-green); margin:0">PANEL COACH</h3>
-                <button class="btn-text" onclick="window.admin.refreshAll()" style="width:auto; margin:0; font-size:12px">↻ Refrescar Datos</button>
+                <button class="icon-btn" onclick="window.admin.refreshAll()"><i class="material-icons-round">refresh</i></button>
             </div>
             <div class="section-card"><h4>Clientes</h4><div id="admin-users-list" class="users-list-container"></div></div>
             
@@ -204,6 +205,7 @@
                 </div>
             </div>
         </section>
+
     </main>
 
     <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
