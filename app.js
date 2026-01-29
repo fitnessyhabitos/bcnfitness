@@ -32,6 +32,7 @@ const app = {
                         state.profile = docSnap.data();
                         if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
                         if(!state.profile.records) state.profile.records = {};
+                        if(!state.profile.config) state.profile.config = { showNutrition: false, showFolds: false, showMeasures: false };
                         app.handleLoginSuccess();
                     } else { signOut(auth); }
                 } catch(e) { console.error(e); }
@@ -61,7 +62,7 @@ const app = {
             const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value);
             await setDoc(doc(db, "users", cred.user.uid), {
                 name: document.getElementById('reg-name').value, role: 'athlete', clientType: document.getElementById('reg-role-select').value, age: document.getElementById('reg-age').value,
-                approved: false, settings: { weeklyGoal: 3, restTime: 60 }, statsHistory: [], records: {}, createdAt: new Date()
+                approved: false, settings: { weeklyGoal: 3, restTime: 60 }, statsHistory: [], records: {}, config: { showNutrition: false, showFolds: false, showMeasures: false }, createdAt: new Date()
             });
         } catch(e) { alert(e.message); }
     },
@@ -241,17 +242,27 @@ const admin = {
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
-        // Cargar Kcal/Water en Admin
+        // Cargar Config
+        const conf = user.config || {};
+        document.getElementById('admin-toggle-nutrition').checked = conf.showNutrition || false;
+        document.getElementById('admin-toggle-folds').checked = conf.showFolds || false;
+        document.getElementById('admin-toggle-measures').checked = conf.showMeasures || false;
+        if(conf.showNutrition) document.getElementById('admin-nutrition-inputs').classList.remove('hidden');
+        else document.getElementById('admin-nutrition-inputs').classList.add('hidden');
+        
         document.getElementById('admin-set-kcal').value = user.assignedNutrition?.kcal || '';
         document.getElementById('admin-set-water').value = user.assignedNutrition?.water || '';
 
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
+        
+        // HISTORIAL Y GRAFICAS
         const hList = document.getElementById('client-detail-history'); hList.innerHTML = 'Cargando...';
         const q = query(collection(db, "workouts"), where("userId", "==", uid));
         const snap = await getDocs(q);
         const workouts = []; snap.forEach(d => workouts.push(d.data()));
         workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+        
         hList.innerHTML = ''; const mCounts = {};
         if(workouts.length===0) hList.innerHTML = '<p style="text-align:center">Sin historial</p>';
         workouts.slice(0,10).forEach(w => {
@@ -262,6 +273,7 @@ const admin = {
             div.onclick = () => profile.showWorkoutDetails(w);
             hList.appendChild(div);
         });
+        
         if(window.chartHelpers) {
             window.chartHelpers.renderRadar('clientRadarChart', mCounts);
             const lineData = [...(user.statsHistory || [])].sort((a,b) => (a.date.seconds||new Date(a.date)) - (b.date.seconds||new Date(b.date)));
@@ -270,6 +282,19 @@ const admin = {
             window.chartHelpers.renderLine('clientMuscleChart', lineData, 'muscle', '#00d4ff');
         }
         app.navTo('client-detail');
+    },
+    
+    updateClientConfig: async () => {
+        const nut = document.getElementById('admin-toggle-nutrition').checked;
+        const fold = document.getElementById('admin-toggle-folds').checked;
+        const meas = document.getElementById('admin-toggle-measures').checked;
+        
+        if(nut) document.getElementById('admin-nutrition-inputs').classList.remove('hidden');
+        else document.getElementById('admin-nutrition-inputs').classList.add('hidden');
+        
+        if(state.currentClientId) {
+            await updateDoc(doc(db, "users", state.currentClientId), { config: { showNutrition:nut, showFolds:fold, showMeasures:meas } });
+        }
     },
     
     saveNutrition: async () => {
@@ -313,144 +338,6 @@ const admin = {
     deleteRoutine: async (id) => { if(confirm("¿Borrar?")) { await deleteDoc(doc(db, "routines", id)); if(state.currentClientId) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } }
 };
 
-const dashboard = {
-    render: async () => {
-        const div = document.getElementById('routines-list'); div.innerHTML = 'Cargando...';
-        dashboard.calculateWeeklyProgress(state.user.uid, 'weekly-count', 'weekly-bar', state.profile.settings?.weeklyGoal);
-        const q = query(collection(db, "routines"), where("assignedTo", "==", state.user.uid));
-        const snap = await getDocs(q); div.innerHTML = '';
-        if(snap.empty) div.innerHTML = '<p style="text-align:center">No tienes rutinas asignadas.</p>';
-        snap.forEach(d => {
-            const r = d.data();
-            div.innerHTML += `<div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p></div>`;
-        });
-    },
-    calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
-        try {
-            const now = new Date(); const day = now.getDay() || 7;
-            const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
-            const q = query(collection(db, "workouts"), where("userId", "==", uid));
-            const snap = await getDocs(q);
-            let count = 0;
-            snap.forEach(d => { if(d.data().date.seconds * 1000 >= start.getTime()) count++; });
-            document.getElementById(cid).innerText = `${count}/${goal}`;
-            document.getElementById(bid).style.width = Math.min((count/goal)*100, 100) + '%';
-        } catch(e) {}
-    }
-};
-
-const workoutManager = {
-    start: async (rid, rname) => {
-        try {
-            const docRef = await getDoc(doc(db, "routines", rid)); const routineData = docRef.data();
-            state.lastWorkoutData = null;
-            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
-            const snap = await getDocs(q); const workouts = [];
-            snap.forEach(d => workouts.push(d.data()));
-            workouts.sort((a,b) => b.date.seconds - a.date.seconds);
-            const last = workouts.find(w => w.data.name === rname);
-            if(last) state.lastWorkoutData = last.data;
-
-            state.activeWorkout = { name: rname, start: Date.now(), exercises: routineData.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) })) };
-            localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout));
-            try { if(navigator.wakeLock) state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
-            workoutManager.uiInit();
-        } catch(e) { alert("Error: " + e.message); }
-    },
-    resumeWorkout: (data) => { state.activeWorkout = data; workoutManager.uiInit(); },
-    uiInit: () => {
-        app.navTo('workout');
-        const div = document.getElementById('active-exercises-container'); div.innerHTML = '';
-        state.activeWorkout.exercises.forEach((ex, idx) => {
-            let html = '';
-            ex.sets.forEach((s, i) => {
-                let prev = '--';
-                if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
-                    const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
-                }
-                const bg = s.done ? 'set-completed' : ''; 
-                const dis = s.done ? 'disabled' : ''; 
-                
-                html += `
-                <div id="set-row-${idx}-${i}" class="set-row ${bg}">
-                    <span style="color:#555">#${i+1}</span>
-                    <span style="font-size:10px; color:#888">${prev}</span>
-                    <input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)">
-                    <input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)">
-                    <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div>
-                </div>`;
-            });
-            div.innerHTML += `<div class="exercise-card"><div style="display:flex; gap:10px; align-items:center; margin-bottom:10px"><img src="assets/muscles/${ex.img}" width="40" height="40" style="background:#000; border-radius:4px"><h3>${ex.n}</h3></div>${html}</div>`;
-        });
-        if(window.gInterval) clearInterval(window.gInterval);
-        window.gInterval = setInterval(() => {
-            if(!state.activeWorkout) return;
-            const d = Math.floor((Date.now() - state.activeWorkout.start)/1000);
-            document.getElementById('global-timer').innerText = `${Math.floor(d/60).toString().padStart(2,'0')}:${(d%60).toString().padStart(2,'0')}`;
-        }, 1000);
-    },
-    updateSet: (ei, si, f, v) => { state.activeWorkout.exercises[ei].sets[si][f] = v; localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)); },
-    toggleSet: (ei, si) => {
-        const s = state.activeWorkout.exercises[ei].sets[si]; s.done = !s.done;
-        // FAST UPDATE UI
-        const row = document.getElementById(`set-row-${ei}-${si}`);
-        if(row) {
-            if(s.done) {
-                row.classList.add('set-completed');
-                row.querySelector('.check-box').classList.add('checked');
-                row.querySelectorAll('input').forEach(i => i.disabled=true);
-            } else {
-                row.classList.remove('set-completed');
-                row.querySelector('.check-box').classList.remove('checked');
-                row.querySelectorAll('input').forEach(i => i.disabled=false);
-            }
-        }
-        if(s.done) {
-            if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
-            workoutManager.startRest(state.profile.settings?.restTime || 60);
-            if(s.kg && s.reps) {
-                const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
-                const name = state.activeWorkout.exercises[ei].n;
-                if(!state.profile.records) state.profile.records = {};
-                if(oneRM > (state.profile.records[name] || 0)) {
-                    state.profile.records[name] = oneRM;
-                    updateDoc(doc(db, "users", state.user.uid), { [`records.${name}`]: oneRM });
-                    app.showToast(`¡RÉCORD! ${name} (${oneRM}kg)`, 'gold');
-                    if(window.confetti) window.confetti();
-                }
-            }
-        }
-        workoutManager.saveLocal();
-    },
-    startRest: (sec) => {
-        document.getElementById('rest-modal').classList.remove('hidden');
-        let r = sec;
-        if(state.restTimer) clearInterval(state.restTimer);
-        const tick = () => {
-            document.getElementById('rest-countdown').innerText = r;
-            if(r <= 0) {
-                if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
-                if(navigator.vibrate) navigator.vibrate([200,200]);
-                workoutManager.stopRest();
-            }
-            r--;
-        };
-        tick(); state.restTimer = setInterval(tick, 1000);
-    },
-    stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
-    cancelWorkout: () => { if(confirm("¿Cancelar?")) { localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{}); app.navTo('dashboard'); } },
-    openFinishModal: () => document.getElementById('finish-modal').classList.remove('hidden'),
-    confirmFinish: async (rpe) => {
-        document.getElementById('finish-modal').classList.add('hidden');
-        if(!state.user || !state.activeWorkout) return alert("Error: No hay sesión");
-        try {
-            await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpe, notes: document.getElementById('final-notes').value });
-            localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{});
-            app.showToast("¡Entreno Guardado!", "gold"); if(window.confetti) window.confetti(); app.navTo('dashboard');
-        } catch(e) { alert("Error: " + e.message); }
-    }
-};
-
 const profile = {
     render: () => {
         document.getElementById('profile-name').innerText = state.profile.name;
@@ -461,57 +348,42 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         
-        // --- LOGICA ATLETA ---
-        const container = document.getElementById('athlete-fields');
-        const phaseSel = document.getElementById('profile-phase-selector');
-        const nutriCard = document.getElementById('nutrition-target-card');
-        const chartsArea = document.getElementById('athlete-charts-area');
-
+        // --- LOGICA MODULAR (V30) ---
+        const config = state.profile.config || {};
+        
+        // FASE (SOLO ATLETAS)
         if(state.profile.clientType === 'atleta') {
-            phaseSel.classList.remove('hidden');
-            if(state.profile.settings?.phase) phaseSel.value = state.profile.settings.phase;
-            
-            // MOSTRAR META NUTRICIONAL (SOLO LECTURA)
-            if(state.profile.assignedNutrition) {
-                nutriCard.classList.remove('hidden');
-                document.getElementById('target-kcal').innerText = state.profile.assignedNutrition.kcal || '--';
-                document.getElementById('target-water').innerText = (state.profile.assignedNutrition.water || '--') + ' L';
-            }
-
-            container.innerHTML = `
-                <div class="athlete-fields-container">
-                    <div class="athlete-section-title"><span>Pliegues (mm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('pliegues.png')">info</i></div>
-                    <div class="measure-grid">
-                        <input type="number" id="fold-pecho" placeholder="Pecho">
-                        <input type="number" id="fold-axila" placeholder="Axila">
-                        <input type="number" id="fold-triceps" placeholder="Tríceps">
-                        <input type="number" id="fold-subescapular" placeholder="Subesc.">
-                        <input type="number" id="fold-abdomen" placeholder="Abdomen">
-                        <input type="number" id="fold-suprailiaco" placeholder="Supra.">
-                        <input type="number" id="fold-muslo" placeholder="Muslo">
-                    </div>
-                    <div class="athlete-section-title" style="margin-top:15px"><span>Perímetros (cm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('medidas.jpg')">info</i></div>
-                    <div class="measure-grid">
-                        <input type="number" id="meas-cuello" placeholder="Cuello">
-                        <input type="number" id="meas-hombros" placeholder="Hombros">
-                        <input type="number" id="meas-brazo" placeholder="Brazo">
-                        <input type="number" id="meas-cintura" placeholder="Cintura">
-                        <input type="number" id="meas-abdomen" placeholder="Abdomen">
-                        <input type="number" id="meas-cadera" placeholder="Cadera">
-                        <input type="number" id="meas-muslo" placeholder="Muslo">
-                    </div>
-                </div>`;
-                
-            // AÑADIR CANVAS PARA GRAFICAS ATLETA
-            chartsArea.innerHTML = `
-                <div class="section-card"><h3>Suma Pliegues (mm)</h3><div class="chart-container"><canvas id="foldsChart"></canvas></div></div>
-                <div class="section-card"><h3>Perímetros Clave (cm)</h3><div class="chart-container"><canvas id="measuresChart"></canvas></div></div>
-            `;
+            document.getElementById('profile-phase-selector').classList.remove('hidden');
+            if(state.profile.settings?.phase) document.getElementById('profile-phase-selector').value = state.profile.settings.phase;
         } else {
-            phaseSel.classList.add('hidden');
-            nutriCard.classList.add('hidden');
-            container.innerHTML = '';
-            chartsArea.innerHTML = '';
+            document.getElementById('profile-phase-selector').classList.add('hidden');
+        }
+
+        // NUTRICION
+        if(config.showNutrition && state.profile.assignedNutrition) {
+            document.getElementById('nutrition-target-card').classList.remove('hidden');
+            document.getElementById('target-kcal').innerText = state.profile.assignedNutrition.kcal || '--';
+            document.getElementById('target-water').innerText = (state.profile.assignedNutrition.water || '--') + ' L';
+        } else {
+            document.getElementById('nutrition-target-card').classList.add('hidden');
+        }
+
+        // PLIEGUES
+        if(config.showFolds) {
+            document.getElementById('card-folds').classList.remove('hidden');
+            document.getElementById('chart-folds-container').classList.remove('hidden');
+        } else {
+            document.getElementById('card-folds').classList.add('hidden');
+            document.getElementById('chart-folds-container').classList.add('hidden');
+        }
+
+        // MEDIDAS
+        if(config.showMeasures) {
+            document.getElementById('card-measures').classList.remove('hidden');
+            document.getElementById('chart-measures-container').classList.remove('hidden');
+        } else {
+            document.getElementById('card-measures').classList.add('hidden');
+            document.getElementById('chart-measures-container').classList.add('hidden');
         }
 
         profile.renderCharts(); profile.loadRadar();
@@ -569,43 +441,50 @@ const profile = {
         snap.forEach(d => { if(d.data().data.exercises) d.data().data.exercises.forEach(e => counts[e.m] = (counts[e.m]||0)+1); });
         if(window.chartHelpers) window.chartHelpers.renderRadar('radarChart', counts);
     },
-    saveStats: async () => {
-        const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
-        
-        let newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
-
-        // SI ES ATLETA, GUARDAMOS EXTROS
-        if(state.profile.clientType === 'atleta') {
-            const folds = {
-                pecho: document.getElementById('fold-pecho').value || 0,
-                axila: document.getElementById('fold-axila').value || 0,
-                triceps: document.getElementById('fold-triceps').value || 0,
-                subescapular: document.getElementById('fold-subescapular').value || 0,
-                abdomen: document.getElementById('fold-abdomen').value || 0,
-                suprailiaco: document.getElementById('fold-suprailiaco').value || 0,
-                muslo: document.getElementById('fold-muslo').value || 0
-            };
-             const measures = {
-                cuello: document.getElementById('meas-cuello').value,
-                hombros: document.getElementById('meas-hombros').value,
-                brazo: document.getElementById('meas-brazo').value,
-                cintura: document.getElementById('meas-cintura').value,
-                abdomen: document.getElementById('meas-abdomen').value,
-                cadera: document.getElementById('meas-cadera').value,
-                muslo: document.getElementById('meas-muslo').value
-            };
-            // Calculamos suma de pliegues
-            const sumFolds = Object.values(folds).reduce((a,b) => parseFloat(a)+parseFloat(b), 0);
-            newEntry = {...newEntry, folds, measures, sumFolds};
-        }
-
-        if(w || (state.profile.clientType==='atleta')) { 
-            await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
-            if(!state.profile.statsHistory) state.profile.statsHistory = [];
-            state.profile.statsHistory.push(newEntry);
-            alert("Guardado"); profile.renderCharts(); 
-        }
+    
+    // --- GUARDIANES INDEPENDIENTES ---
+    saveBasicStats: async () => {
+        const w = document.getElementById('stats-weight').value;
+        const f = document.getElementById('stats-fat').value;
+        const m = document.getElementById('stats-muscle').value;
+        if(!w && !f && !m) return;
+        const newEntry = { date: new Date(), weight: w, fat: f, muscle: m };
+        await profile.pushStat(newEntry);
     },
+    saveFolds: async () => {
+        const folds = {
+            pecho: document.getElementById('fold-pecho').value || 0,
+            axila: document.getElementById('fold-axila').value || 0,
+            triceps: document.getElementById('fold-triceps').value || 0,
+            subescapular: document.getElementById('fold-subescapular').value || 0,
+            abdomen: document.getElementById('fold-abdomen').value || 0,
+            suprailiaco: document.getElementById('fold-suprailiaco').value || 0,
+            muslo: document.getElementById('fold-muslo').value || 0
+        };
+        const sumFolds = Object.values(folds).reduce((a,b) => parseFloat(a)+parseFloat(b), 0);
+        await profile.pushStat({ date: new Date(), folds: folds, sumFolds: sumFolds });
+    },
+    saveMeasures: async () => {
+        const measures = {
+            cuello: document.getElementById('meas-cuello').value,
+            hombros: document.getElementById('meas-hombros').value,
+            brazo: document.getElementById('meas-brazo').value,
+            cintura: document.getElementById('meas-cintura').value,
+            abdomen: document.getElementById('meas-abdomen').value,
+            cadera: document.getElementById('meas-cadera').value,
+            muslo: document.getElementById('meas-muslo').value
+        };
+        await profile.pushStat({ date: new Date(), measures: measures });
+    },
+    
+    pushStat: async (entry) => {
+        await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(entry) });
+        if(!state.profile.statsHistory) state.profile.statsHistory = [];
+        state.profile.statsHistory.push(entry);
+        alert("Registrado");
+        profile.renderCharts();
+    },
+
     saveSettings: async () => {
         const g = parseInt(document.getElementById('conf-weekly-goal').value); const r = parseInt(document.getElementById('conf-rest-time').value);
         await updateDoc(doc(db, "users", state.user.uid), { "settings.weeklyGoal": g, "settings.restTime": r });
@@ -663,25 +542,21 @@ const profile = {
 
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
-        history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
+        // Ordenar por fecha, manejando Timestamp de Firestore y Date de JS
+        history.sort((a,b) => (a.date.seconds ? new Date(a.date.seconds*1000) : new Date(a.date)) - (b.date.seconds ? new Date(b.date.seconds*1000) : new Date(b.date)));
         
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
-            window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
+            window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff'); // AQUI ESTA LA GRAFICA MUSCULO
             
-            // GRAFICAS ATLETA (SI EXISTEN DATOS Y CANVAS)
-            if(state.profile.clientType === 'atleta') {
-                // Suma Pliegues
-                window.chartHelpers.renderLine('foldsChart', history, 'sumFolds', '#FFD700');
-                // Medidas (Multilinea complejo, simplificamos a Cintura)
-                // Para simplificar renderizamos solo Cintura aquí, o se podría hacer un gráfico complejo
-                if(history.length > 0 && history[0].measures) {
-                     // Hack para mostrar medidas: Mapeamos el historial para extraer "cintura" como si fuera un campo directo
-                     const waistData = history.map(h => ({...h, cintura: h.measures?.cintura || 0}));
-                     window.chartHelpers.renderLine('measuresChart', waistData, 'cintura', '#00d4ff');
-                }
-            }
+            // GRAFICAS ATLETA (FILTRAR SOLO DATOS QUE EXISTAN)
+            const foldData = history.filter(h => h.sumFolds);
+            if(foldData.length > 0) window.chartHelpers.renderLine('foldsChart', foldData, 'sumFolds', '#FFD700');
+            
+            // Hack para Cintura (Extraer de objeto measures)
+            const measureData = history.filter(h => h.measures && h.measures.cintura).map(h => ({date: h.date, cintura: h.measures.cintura}));
+            if(measureData.length > 0) window.chartHelpers.renderLine('measuresChart', measureData, 'cintura', '#00d4ff');
         }
     }
 };
