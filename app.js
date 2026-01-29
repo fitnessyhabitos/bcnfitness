@@ -97,12 +97,11 @@ const admin = {
     // --- BUSCADOR VISUAL ---
     searchExercises: (term) => {
         const container = document.getElementById('search-results-container');
-        if(!container) return; // Seguridad si no existe en HTML
+        if(!container) return; 
         container.innerHTML = '';
         container.classList.remove('hidden');
         
         const normTerm = normalizeText(term);
-        // Filtrar y mostrar máximo 20 resultados para no colapsar
         const results = EXERCISES.filter(e => normalizeText(e.n).includes(normTerm)).slice(0, 20);
         
         if(results.length === 0) {
@@ -111,7 +110,7 @@ const admin = {
         }
 
         results.forEach((ex) => {
-            const realIdx = EXERCISES.indexOf(ex); // Indice real en array principal
+            const realIdx = EXERCISES.indexOf(ex);
             const div = document.createElement('div');
             div.className = 'search-result-item';
             div.innerHTML = `<img src="assets/muscles/${ex.img}" alt="${ex.m}"><span>${ex.n}</span>`;
@@ -125,7 +124,6 @@ const admin = {
     },
 
     addExerciseToRoutine: (idx) => {
-        // 5 SERIES DEFAULT (20-16-16-16-16)
         state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:20},{reps:16},{reps:16},{reps:16},{reps:16}]}); 
         admin.renderPreview(); 
     },
@@ -155,19 +153,16 @@ const admin = {
         admin.renderPreview();
     },
 
-    // --- EDICIÓN Y GUARDADO ---
     editRoutine: async (id) => {
         const docSnap = await getDoc(doc(db, "routines", id));
         const r = docSnap.data();
         state.editingRoutineId = id;
         state.newRoutine = r.exercises;
-        
         document.getElementById('new-routine-name').value = r.name;
         document.getElementById('assign-client-select').value = r.assignedTo;
         document.getElementById('routine-editor-title').innerText = "Editando: " + r.name;
         document.getElementById('save-routine-btn').innerText = "ACTUALIZAR";
         document.getElementById('cancel-edit-btn').classList.remove('hidden');
-        
         admin.renderPreview();
         document.getElementById('routine-editor-card').scrollIntoView({behavior: 'smooth'});
     },
@@ -209,7 +204,7 @@ const admin = {
             const selectAssign = document.getElementById('assign-client-select'); selectAssign.innerHTML = '<option disabled selected>Selecciona...</option>';
             snap.forEach(d => {
                 const u = d.data(); state.allClients.push({id:d.id, ...u});
-                div.innerHTML += `<div class="user-row" onclick="window.admin.viewClient('${d.id}')"><img src="${u.photoURL||'assets/placeholder-body.png'}" class="user-avatar-small"><div class="user-info"><h5>${u.name} <span class="routine-count-badge">[${rCounts[d.id]||0} Rutinas]</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
+                div.innerHTML += `<div class="user-row" onclick="window.admin.viewClient('${d.id}')"><img src="${u.photoURL||'https://placehold.co/100x100/333/39ff14?text=IMG'}" class="user-avatar-small"><div class="user-info"><h5>${u.name} <span class="routine-count-badge">[${rCounts[d.id]||0} Rutinas]</span></h5><span>${u.clientType||'Cliente'}</span></div><div class="user-actions">${!u.approved ? `<button class="action-btn btn-green" onclick="window.admin.toggleApproval('${d.id}', true)">APROBAR</button>` : ''}<button class="action-btn btn-delete" onclick="window.admin.deleteUser('${d.id}', '${u.name}')"><i class="material-icons-round" style="font-size:14px">delete</i></button></div></div>`;
                 selectAssign.innerHTML += `<option value="${d.id}">${u.name}</option>`;
             });
         } catch(e) { div.innerHTML = 'Error usuarios'; }
@@ -360,7 +355,7 @@ const workoutManager = {
                     const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
                 const bg = s.done ? 'set-completed' : ''; // Clase para el contenedor
-                const dis = s.done ? 'disabled' : ''; // Atributo para inputs
+                const dis = s.done ? 'disabled' : ''; // Atributo DISABLED
                 
                 html += `
                 <div class="set-row ${bg}">
@@ -463,6 +458,7 @@ const profile = {
         if(w) { 
             const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
+            // FORCE UPDATE LOCAL
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
             alert("Guardado"); profile.renderCharts(); 
@@ -505,9 +501,22 @@ const profile = {
         const reader = new FileReader();
         reader.onload = async (e) => {
             const base64 = e.target.result;
-            document.getElementById('profile-img').src = base64;
-            state.profile.photoURL = base64;
-            await updateDoc(doc(db, "users", state.user.uid), { photoURL: base64 });
+            // COMPRESIÓN BÁSICA
+            const img = new Image();
+            img.src = base64;
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const scale = 300 / img.width;
+                canvas.width = 300;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                
+                document.getElementById('profile-img').src = compressed;
+                state.profile.photoURL = compressed;
+                await updateDoc(doc(db, "users", state.user.uid), { photoURL: compressed });
+            };
         };
         reader.readAsDataURL(file);
     },
@@ -515,6 +524,7 @@ const profile = {
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
         history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
+        
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
