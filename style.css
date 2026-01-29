@@ -13,16 +13,7 @@ h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; marg
 .icon-btn { background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; } .icon-btn i { font-size: 28px; }
 input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; font-family: 'Roboto', sans-serif; }
 input:focus, select:focus, textarea:focus { border-color: var(--neon-green); outline: none; }
-
-/* FIX VISUAL: INPUTS TRANSPARENTES CUANDO ESTÁN BLOQUEADOS */
-input:disabled { 
-    background: transparent !important; 
-    color: white; 
-    border-color: transparent !important; 
-    font-weight: bold;
-    opacity: 1;
-}
-
+input:disabled { background: transparent !important; color: white; border-color: transparent !important; font-weight: bold; opacity: 1; }
 .section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); position: relative; z-index: 2; }
 .warning-box { background: rgba(255, 165, 0, 0.2); color: orange; padding: 10px; border-radius: 8px; margin-bottom: 20px; border: 1px solid orange; text-align: center; font-size: 14px; }
 .install-box { margin-top: 30px; background: rgba(30,30,30,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(57,255,20,0.3); border-radius: 16px; padding: 15px; text-align: left; }
@@ -47,11 +38,13 @@ input:disabled {
 .stat-box small { display: block; color: #888; font-size: 10px; margin-bottom: 5px; } .stat-box strong { font-size: 20px; color: white; font-family: 'Russo One'; }
 .btn-icon-large { background: #222; border: 1px solid #444; color: white; padding: 10px 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 48%; cursor: pointer; } .btn-icon-large i { color: var(--neon-green); font-size: 24px; } .btn-icon-large span { font-size: 11px; }
 .users-list-container { max-height: 350px; overflow-y: auto; }
-.user-row { display: flex; flex-wrap: wrap; align-items: center; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; cursor: pointer; }
-.user-avatar-small { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; margin-right: 12px; border: 2px solid var(--neon-green); }
-.user-info { flex-grow: 1; margin-right: 10px; } .user-info h5 { margin: 0; font-size: 14px; color: white; } .user-info span { font-size: 12px; color: #888; text-transform: capitalize; }
-.user-actions { width: 100%; display: flex; justify-content: flex-end; gap: 5px; margin-top: 8px; }
-.action-btn { font-size: 10px; padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; text-transform: uppercase; } .btn-green { background: #4cd964; color: black; } .btn-delete { background: #ff3b30; color: white; }
+/* FIX ALINEACION CLIENTE */
+.user-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; cursor: pointer; gap: 10px; }
+.user-avatar-small { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); flex-shrink: 0; }
+.user-info { flex-grow: 1; overflow: hidden; } 
+.user-info h5 { margin: 0; font-size: 14px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .user-info span { font-size: 12px; color: #888; text-transform: capitalize; }
+.user-actions { display: flex; gap: 5px; flex-shrink: 0; }
+.action-btn { font-size: 12px; padding: 6px; border-radius: 4px; border: none; cursor: pointer; background: #333; color: #fff; } 
 .routine-count-badge { margin-left: 5px; font-size: 11px; background: #444; padding: 2px 5px; border-radius: 3px; color: #fff; }
 .routine-edit-row { background: #222; padding: 10px; margin-bottom: 5px; border-radius: 5px; }
 .routine-edit-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -63,24 +56,20 @@ input:disabled {
 .search-result-item img { width: 40px; height: 40px; border-radius: 4px; background: #000; border: 1px solid var(--neon-green); object-fit: contain; }
 .search-result-item span { font-weight: bold; color: white; font-size: 14px; }
 #search-results-container { position: absolute; top: 100%; left: 0; width: 100%; background: #1a1a1a; border: 1px solid var(--neon-green); border-radius: 0 0 8px 8px; max-height: 250px; overflow-y: auto; z-index: 999; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+/* COMPARTIR RUTINA DROPDOWN */
+.assign-dropdown { position: absolute; top: 35px; right: 10px; background: #1a1a1a; border: 1px solid var(--neon-green); border-radius: 8px; padding: 5px; z-index: 99; width: 200px; display: none; }
+.assign-dropdown.active { display: block; }
+.assign-dropdown input { margin-bottom: 5px; font-size: 12px; padding: 8px; }
+.assign-list { max-height: 150px; overflow-y: auto; }
+.assign-item { padding: 8px; font-size: 12px; border-bottom: 1px solid #333; cursor: pointer; }
+.assign-item:hover { background: #333; }
+
 .workout-sticky-header { position: sticky; top: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); z-index: 50; padding: 10px 0; margin-bottom: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
 .timer-box { display: flex; flex-direction: column; } .timer-label { font-size: 10px; color: #888; }
 #global-timer { font-family: 'Russo One'; font-size: 24px; color: white; }
-
-.set-row { 
-    display: grid; grid-template-columns: 0.4fr 1fr 0.8fr 0.8fr 0.4fr; gap: 8px; 
-    align-items: center; margin-top: 8px; padding: 8px; 
-    background: #080808; border-radius: 6px; 
-    transition: all 0.1s ease;
-}
+.set-row { display: grid; grid-template-columns: 0.4fr 1fr 0.8fr 0.8fr 0.4fr; gap: 8px; align-items: center; margin-top: 8px; padding: 8px; background: #080808; border-radius: 6px; transition: all 0.1s ease; }
 .set-row input { margin: 0; padding: 8px; text-align: center; font-weight: bold; font-size: 18px; }
-
-/* CLASE MAGICA PARA COMPLETADO (VERDE CLARITO TRANSLUCIDO) */
-.set-completed { 
-    background-color: rgba(57, 255, 20, 0.2) !important; 
-    border: 1px solid rgba(57, 255, 20, 0.4);
-}
-
+.set-completed { background-color: rgba(57, 255, 20, 0.2) !important; border: 1px solid rgba(57, 255, 20, 0.4); }
 .check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0 auto; } .check-box.checked { background: var(--neon-green); color: black; font-weight: bold; }
 .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; } .detail-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; } .detail-table td { padding: 5px; border-bottom: 1px solid #333; }
 .traffic-light-container { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
