@@ -9,7 +9,6 @@
     <link rel="apple-touch-icon" href="logo.png">
     <link rel="icon" href="logo.png" type="image/png">
     <meta name="theme-color" content="#000000">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&family=Russo+One&display=swap" rel="stylesheet">
@@ -29,9 +28,7 @@
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')">
-                <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
-            </button>
+            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')"><i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i></button>
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
@@ -133,6 +130,7 @@
                     <div class="progress-bar-bg"><div id="client-weekly-bar" class="progress-bar-fill" style="width:0%"></div></div>
                 </div>
             </div>
+            
             <div class="section-card" style="border-left: 4px solid var(--neon-green)">
                 <h4>Rutinas Asignadas</h4>
                 <div id="client-routines-list"></div>
@@ -141,6 +139,7 @@
                     <div style="display:flex; gap:10px"><select id="client-clone-select" style="margin:0"></select><button class="btn-secondary" style="width:auto; margin:0" onclick="window.admin.cloneRoutineFromClientView()">+</button></div>
                 </div>
             </div>
+
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
@@ -184,6 +183,7 @@
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
+                    <div id="athlete-fields"></div> 
                     <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
                 </div>
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
@@ -205,25 +205,23 @@
                 </div>
             </div>
         </section>
-
     </main>
+
+    <div id="help-modal" class="modal-overlay hidden" style="z-index: 10003;" onclick="this.classList.add('hidden')">
+        <div class="modal-content" style="background:#111; max-width:400px; padding:0" onclick="event.stopPropagation()">
+            <img id="help-img" src="" style="width:100%; border-radius:10px">
+            <button class="btn-text" onclick="document.getElementById('help-modal').classList.add('hidden')">CERRAR</button>
+        </div>
+    </div>
 
     <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>Editar Usuario</h3>
             <input type="text" id="edit-user-name" placeholder="Nombre">
-            <select id="edit-user-role">
-                <option value="cliente">Cliente</option>
-                <option value="atleta">Atleta</option>
-                <option value="coach">Coach (Admin)</option>
-            </select>
-            <div style="display:flex; gap:10px; margin-top:15px">
-                <button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button>
-                <button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button>
-            </div>
+            <select id="edit-user-role"><option value="cliente">Cliente</option><option value="atleta">Atleta</option><option value="coach">Coach (Admin)</option></select>
+            <div style="display:flex; gap:10px; margin-top:15px"><button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button><button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button></div>
         </div>
     </div>
-
     <div id="toast-container"></div>
     <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
         <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
@@ -234,28 +232,15 @@
     <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>¿QUÉ TAL FUE?</h3>
-            <div class="traffic-light-container">
-                <button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button>
-                <button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button>
-                <button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button>
-            </div>
+            <div class="traffic-light-container"><button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button><button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button><button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button></div>
             <textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea>
             <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button>
         </div>
     </div>
     <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;">
-        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
-                <h3 style="margin:0" id="wd-title">Detalles</h3>
-                <button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button>
-            </div>
-            <div id="wd-content"></div>
-        </div>
+        <div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px"><h3 style="margin:0" id="wd-title">Detalles</h3><button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button></div><div id="wd-content"></div></div>
     </div>
-    <nav id="bottom-nav" class="hidden">
-        <div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
-        <div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div>
-    </nav>
+    <nav id="bottom-nav" class="hidden"><div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div><div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div></nav>
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
     <script type="module" src="app.js"></script>
     <script>setTimeout(function(){var s=document.getElementById('splash-screen');if(s&&!s.classList.contains('hidden'))s.style.display='none';},3000);</script>
