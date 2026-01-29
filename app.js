@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
+// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,6 +18,8 @@ const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
 const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null, editingUserId: null };
+
+// HELPER NORMALIZAR
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const chartHelpers = {
@@ -54,7 +57,7 @@ const app = {
                         state.profile = docSnap.data();
                         if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
                         if(!state.profile.records) state.profile.records = {};
-                        if(!state.profile.perms) state.profile.perms = { folds: false, meas: false };
+                        if(!state.profile.perms) state.profile.perms = { folds:false, meas:false }; // Permisos por defecto
                         app.handleLoginSuccess();
                     } else { signOut(auth); }
                 } catch(e) { console.error(e); }
@@ -84,7 +87,7 @@ const app = {
             const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value);
             await setDoc(doc(db, "users", cred.user.uid), {
                 name: document.getElementById('reg-name').value, role: 'athlete', clientType: document.getElementById('reg-role-select').value, age: document.getElementById('reg-age').value,
-                approved: false, settings: { weeklyGoal: 3, restTime: 60 }, statsHistory: [], records: {}, perms: { folds: false, meas: false }, createdAt: new Date()
+                approved: false, settings: { weeklyGoal: 3, restTime: 60 }, statsHistory: [], records: {}, perms: { folds:false, meas:false }, createdAt: new Date()
             });
         } catch(e) { alert(e.message); }
     },
@@ -251,16 +254,16 @@ const admin = {
         const list = document.getElementById(`assign-list-${rid}`);
         list.innerHTML = state.allClients.filter(c => c.name.toLowerCase().includes(term)).map(c => `<div class="assign-item" onclick="window.admin.cloneRoutine('${rid}', '${c.id}')">${c.name}</div>`).join('');
     },
+    
+    // --- GESTION PERMISOS COACH ---
     viewClient: async (uid) => {
         state.currentClientId = uid;
         const user = state.allClients.find(c => c.id === uid); if(!user) return;
         document.getElementById('client-detail-name').innerText = user.name;
         document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('client-detail-img').src = user.photoURL || 'assets/placeholder-body.png';
-        const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
-        document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
-        // --- ADMIN PERMISSIONS ---
+        // Cargar permisos visuales
         const perms = user.perms || {};
         document.getElementById('adm-perm-folds').checked = perms.folds || false;
         document.getElementById('adm-perm-measures').checked = perms.meas || false;
@@ -342,27 +345,30 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         
-        // --- PERMISOS ---
+        // --- MOSTRAR SOLO SI TIENE PERMISOS ---
         const perms = state.profile.perms || {};
+        
         const btnFolds = document.getElementById('btn-toggle-folds');
         const btnMeas = document.getElementById('btn-toggle-meas');
-        const cardFolds = document.getElementById('card-chart-folds');
-        const cardMeas = document.getElementById('card-chart-meas');
+        const cardChartFolds = document.getElementById('card-chart-folds');
+        const cardChartMeas = document.getElementById('card-chart-meas');
         
+        // Pliegues
         if(perms.folds) {
             btnFolds.classList.remove('hidden');
-            cardFolds.classList.remove('hidden');
+            cardChartFolds.classList.remove('hidden');
         } else {
             btnFolds.classList.add('hidden');
-            cardFolds.classList.add('hidden');
+            cardChartFolds.classList.add('hidden');
         }
 
+        // Medidas
         if(perms.meas) {
             btnMeas.classList.remove('hidden');
-            cardMeas.classList.remove('hidden');
+            cardChartMeas.classList.remove('hidden');
         } else {
             btnMeas.classList.add('hidden');
-            cardMeas.classList.add('hidden');
+            cardChartMeas.classList.add('hidden');
         }
 
         profile.renderCharts(); profile.loadRadar();
@@ -416,7 +422,7 @@ const profile = {
         if(window.chartHelpers) window.chartHelpers.renderRadar('radarChart', counts);
     },
     
-    // GUARDA TODO LO QUE ESTÉ VISIBLE
+    // GUARDA TODO LO QUE ESTE RELLENO
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value;
         const f = document.getElementById('stats-fat').value;
@@ -424,7 +430,7 @@ const profile = {
         
         let newEntry = { date: new Date(), weight: w, fat: f, muscle: m };
         
-        // Si pliegues visibles
+        // Si la sección de pliegues no está oculta (es decir, el usuario la abrió)
         if(!document.getElementById('folds-inputs').classList.contains('hidden')) {
              const folds = {
                 pecho: document.getElementById('fold-pecho').value || 0,
@@ -440,9 +446,9 @@ const profile = {
             newEntry.sumFolds = sumFolds;
         }
 
-        // Si medidas visibles
+        // Si la sección de medidas no está oculta
         if(!document.getElementById('measures-inputs').classList.contains('hidden')) {
-            const measures = {
+             const measures = {
                 cuello: document.getElementById('meas-cuello').value,
                 hombros: document.getElementById('meas-hombros').value,
                 brazo: document.getElementById('meas-brazo').value,
@@ -457,7 +463,7 @@ const profile = {
         await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
         if(!state.profile.statsHistory) state.profile.statsHistory = [];
         state.profile.statsHistory.push(newEntry);
-        alert("Registrado");
+        alert("Guardado");
         profile.renderCharts();
     },
 
@@ -518,44 +524,28 @@ const profile = {
 
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
-        // Ordenar seguro fechas
-        history.sort((a,b) => (a.date.seconds ? new Date(a.date.seconds*1000) : new Date(a.date)) - (b.date.seconds ? new Date(b.date.seconds*1000) : new Date(b.date)));
+        // Orden robusto de fechas
+        history.sort((a,b) => {
+            const da = a.date.seconds ? new Date(a.date.seconds*1000) : new Date(a.date);
+            const db = b.date.seconds ? new Date(b.date.seconds*1000) : new Date(b.date);
+            return da - db;
+        });
         
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
             window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
             
-            // GRAFICAS EXTRA
+            // GRAFICAS EXTRA (SOLO SI HAY DATOS)
             const foldData = history.filter(h => h.sumFolds);
             if(foldData.length > 0) window.chartHelpers.renderLine('foldsChart', foldData, 'sumFolds', '#FFD700');
             
-            const measData = history.filter(h => h.measures && h.measures.cintura).map(h => ({date:h.date, cintura:h.measures.cintura}));
-            if(measData.length > 0) window.chartHelpers.renderLine('measChart', measData, 'cintura', '#00d4ff');
+            // Cintura
+            const waistData = history.filter(h => h.measures && h.measures.cintura).map(h => ({
+                date: h.date, cintura: h.measures.cintura
+            }));
+            if(waistData.length > 0) window.chartHelpers.renderLine('measChart', waistData, 'cintura', '#00d4ff');
         }
-    }
-};
-
-const chartHelpers = {
-    renderLine: (id, data, field, color) => {
-        const ctx = document.getElementById(id); if(!ctx) return;
-        const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { 
-            type: 'line', 
-            data: { 
-                labels: data.map(d => {
-                    const date = d.date.seconds ? new Date(d.date.seconds*1000) : new Date(d.date);
-                    return date.toLocaleDateString();
-                }), 
-                datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] 
-            }, 
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } 
-        });
-    },
-    renderRadar: (id, counts) => {
-        const ctx = document.getElementById(id); if(!ctx) return;
-        const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { type: 'radar', data: { labels: Object.keys(counts), datasets: [{ label: 'Series', data: Object.values(counts), backgroundColor: 'rgba(57,255,20,0.2)', borderColor: '#39ff14' }] }, options: { scales: { r: { grid: { color: '#444' }, pointLabels: { color: 'white' }, ticks: { display: false } } } } });
     }
 };
 
