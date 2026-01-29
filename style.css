@@ -1,4 +1,3 @@
-/* --- ESTILOS V24 (FIX BLOQUEO VISUAL) --- */
 :root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; --text-gray: #a0a0a0; --danger: #ff3b30; --gold: #FFD700; --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body { height: 100%; width: 100%; margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: var(--text-white); overflow-y: scroll; padding-top: var(--safe-top); padding-bottom: var(--safe-bottom); }
@@ -15,13 +14,13 @@ h1, h2, h3, h4 { font-family: 'Russo One', sans-serif; letter-spacing: 1px; marg
 input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; font-family: 'Roboto', sans-serif; }
 input:focus, select:focus, textarea:focus { border-color: var(--neon-green); outline: none; }
 
-/* FIX VISUAL INPUTS BLOQUEADOS */
+/* FIX VISUAL: INPUTS TRANSPARENTES CUANDO ESTÁN BLOQUEADOS */
 input:disabled { 
-    background: transparent !important; /* IMPORTANTE: Para que se vea el verde de fondo */
-    color: #fff; 
+    background: transparent !important; 
+    color: white; 
     border-color: transparent !important; 
-    opacity: 0.8;
     font-weight: bold;
+    opacity: 1;
 }
 
 .section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); position: relative; z-index: 2; }
@@ -56,7 +55,7 @@ input:disabled {
 .routine-count-badge { margin-left: 5px; font-size: 11px; background: #444; padding: 2px 5px; border-radius: 3px; color: #fff; }
 .routine-edit-row { background: #222; padding: 10px; margin-bottom: 5px; border-radius: 5px; }
 .routine-edit-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.routine-mini-img { width: 35px; height: 35px; border-radius: 4px; background: #000; object-fit: contain; border: 1px solid #333; }
+.routine-mini-img { width: 30px; height: 30px; border-radius: 4px; background: #000; }
 .routine-sets-inputs { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
 .mini-input { width: 40px; background: #333; border: 1px solid #444; color: white; text-align: center; padding: 5px; border-radius: 4px; font-size: 12px; margin: 0; }
 .search-result-item { padding: 10px; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 15px; cursor: pointer; background: #1a1a1a; transition: background 0.2s; }
@@ -72,18 +71,17 @@ input:disabled {
     display: grid; grid-template-columns: 0.4fr 1fr 0.8fr 0.8fr 0.4fr; gap: 8px; 
     align-items: center; margin-top: 8px; padding: 8px; 
     background: #080808; border-radius: 6px; 
-    transition: all 0.2s ease;
+    transition: all 0.1s ease;
 }
 .set-row input { margin: 0; padding: 8px; text-align: center; font-weight: bold; font-size: 18px; }
 
-/* CLASE MAGICA PARA COMPLETADO */
+/* CLASE MAGICA PARA COMPLETADO (VERDE CLARITO TRANSLUCIDO) */
 .set-completed { 
-    background-color: rgba(57, 255, 20, 0.15) !important; /* Verde muy clarito */
-    border: 1px solid rgba(57, 255, 20, 0.3);
+    background-color: rgba(57, 255, 20, 0.2) !important; 
+    border: 1px solid rgba(57, 255, 20, 0.4);
 }
 
-.check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0 auto; }
-.check-box.checked { background: var(--neon-green); color: black; font-weight: bold; }
+.check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0 auto; } .check-box.checked { background: var(--neon-green); color: black; font-weight: bold; }
 .detail-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; } .detail-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 5px; } .detail-table td { padding: 5px; border-bottom: 1px solid #333; }
 .traffic-light-container { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
 .traffic-btn { flex: 1; border: none; border-radius: 12px; padding: 15px 5px; color: black; font-weight: bold; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: transform 0.1s; } .traffic-btn:active { transform: scale(0.95); } .traffic-btn.green { background: #4cd964; } .traffic-btn.orange { background: #ffcc00; } .traffic-btn.red { background: #ff3b30; color: white; } .traffic-btn i { font-size: 28px; }
