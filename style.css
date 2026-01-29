@@ -38,11 +38,11 @@ input:disabled { background: transparent !important; color: white; border-color:
 .stat-box small { display: block; color: #888; font-size: 10px; margin-bottom: 5px; } .stat-box strong { font-size: 20px; color: white; font-family: 'Russo One'; }
 .btn-icon-large { background: #222; border: 1px solid #444; color: white; padding: 10px 20px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 48%; cursor: pointer; } .btn-icon-large i { color: var(--neon-green); font-size: 24px; } .btn-icon-large span { font-size: 11px; }
 .users-list-container { max-height: 350px; overflow-y: auto; }
-/* FIX ALINEACION CLIENTE */
-.user-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; padding: 10px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; cursor: pointer; gap: 10px; }
-.user-avatar-small { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-green); flex-shrink: 0; }
+/* COMPACT CLIENT ROW */
+.user-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; padding: 8px; background: #222; border-radius: 8px; margin-bottom: 8px; border-bottom: 1px solid #333; cursor: pointer; gap: 10px; }
+.user-avatar-small { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--neon-green); flex-shrink: 0; }
 .user-info { flex-grow: 1; overflow: hidden; } 
-.user-info h5 { margin: 0; font-size: 14px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .user-info span { font-size: 12px; color: #888; text-transform: capitalize; }
+.user-info h5 { margin: 0; font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .user-info span { font-size: 11px; color: #888; text-transform: capitalize; }
 .user-actions { display: flex; gap: 5px; flex-shrink: 0; }
 .action-btn { font-size: 12px; padding: 6px; border-radius: 4px; border: none; cursor: pointer; background: #333; color: #fff; } 
 .routine-count-badge { margin-left: 5px; font-size: 11px; background: #444; padding: 2px 5px; border-radius: 3px; color: #fff; }
@@ -56,14 +56,12 @@ input:disabled { background: transparent !important; color: white; border-color:
 .search-result-item img { width: 40px; height: 40px; border-radius: 4px; background: #000; border: 1px solid var(--neon-green); object-fit: contain; }
 .search-result-item span { font-weight: bold; color: white; font-size: 14px; }
 #search-results-container { position: absolute; top: 100%; left: 0; width: 100%; background: #1a1a1a; border: 1px solid var(--neon-green); border-radius: 0 0 8px 8px; max-height: 250px; overflow-y: auto; z-index: 999; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
-/* COMPARTIR RUTINA DROPDOWN */
 .assign-dropdown { position: absolute; top: 35px; right: 10px; background: #1a1a1a; border: 1px solid var(--neon-green); border-radius: 8px; padding: 5px; z-index: 99; width: 200px; display: none; }
 .assign-dropdown.active { display: block; }
 .assign-dropdown input { margin-bottom: 5px; font-size: 12px; padding: 8px; }
 .assign-list { max-height: 150px; overflow-y: auto; }
 .assign-item { padding: 8px; font-size: 12px; border-bottom: 1px solid #333; cursor: pointer; }
 .assign-item:hover { background: #333; }
-
 .workout-sticky-header { position: sticky; top: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(5px); z-index: 50; padding: 10px 0; margin-bottom: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
 .timer-box { display: flex; flex-direction: column; } .timer-label { font-size: 10px; color: #888; }
 #global-timer { font-family: 'Russo One'; font-size: 24px; color: white; }
