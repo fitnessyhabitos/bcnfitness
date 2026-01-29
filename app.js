@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// CONFIGURACIÓN
+// 1. CONFIGURACIÓN
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,8 +17,24 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null, editingUserId: null };
+// 2. ESTADO GLOBAL
+const state = { 
+    user: null, 
+    profile: null, 
+    activeWorkout: null, 
+    lastWorkoutData: null, 
+    restTimer: null, 
+    newRoutine: [], 
+    sounds: { beep: document.getElementById('timer-beep') }, 
+    currentClientId: null, 
+    wakeLock: null, 
+    editingRoutineId: null, 
+    editingUserId: null 
+};
+
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+// 3. MÓDULOS DE AYUDA (DEFINIR PRIMERO)
 
 const chartHelpers = {
     renderLine: (id, data, field, color) => {
@@ -43,75 +59,250 @@ const chartHelpers = {
     }
 };
 
-const app = {
-    init: () => {
-        setTimeout(() => { const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none'; }, 4000);
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                state.user = user;
-                try {
-                    const docSnap = await getDoc(doc(db, "users", user.uid));
-                    if(docSnap.exists()) {
-                        state.profile = docSnap.data();
-                        // Inicializar campos si no existen (Defensivo)
-                        if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
-                        if(!state.profile.records) state.profile.records = {};
-                        if(!state.profile.perms) state.profile.perms = { folds:false, meas:false };
-                        app.handleLoginSuccess();
-                    } else { signOut(auth); }
-                } catch(e) { console.error(e); }
-            } else {
-                app.navTo('login');
-                const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none';
-            }
-        });
-        document.getElementById('logout-btn').onclick = () => signOut(auth);
-        document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
-        document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
-        
-        const searchInput = document.getElementById('exercise-search');
-        if(searchInput) {
-            searchInput.addEventListener('input', (e) => admin.searchExercises(e.target.value));
-            searchInput.addEventListener('focus', () => admin.searchExercises(searchInput.value));
-        }
-        document.addEventListener('click', (e) => {
-            if(!e.target.closest('.exercise-selector')) document.getElementById('search-results-container')?.classList.add('hidden');
-            if(!e.target.closest('.assign-dropdown')) document.querySelectorAll('.assign-dropdown').forEach(d => d.classList.remove('active'));
+const dashboard = {
+    render: async () => {
+        const div = document.getElementById('routines-list'); div.innerHTML = 'Cargando...';
+        dashboard.calculateWeeklyProgress(state.user.uid, 'weekly-count', 'weekly-bar', state.profile.settings?.weeklyGoal);
+        const q = query(collection(db, "routines"), where("assignedTo", "==", state.user.uid));
+        const snap = await getDocs(q); div.innerHTML = '';
+        if(snap.empty) div.innerHTML = '<p style="text-align:center">No tienes rutinas asignadas.</p>';
+        snap.forEach(d => {
+            const r = d.data();
+            div.innerHTML += `<div class="exercise-card" onclick="window.workoutManager.start('${d.id}', '${r.name}')" style="cursor:pointer"><div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div><p style="color:#888; font-size:14px; margin:5px 0">${r.exercises.length} Ejercicios</p></div>`;
         });
     },
-    login: async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } catch(e) { alert(e.message); } },
-    register: async () => {
-        if(document.getElementById('reg-code').value !== 'bcnfitness') return alert("Código incorrecto");
+    calculateWeeklyProgress: async (uid, cid, bid, goal=3) => {
         try {
-            const cred = await createUserWithEmailAndPassword(auth, document.getElementById('reg-email').value, document.getElementById('reg-pass').value);
-            await setDoc(doc(db, "users", cred.user.uid), {
-                name: document.getElementById('reg-name').value, role: 'athlete', clientType: document.getElementById('reg-role-select').value, age: document.getElementById('reg-age').value,
-                approved: false, settings: { weeklyGoal: 3, restTime: 60 }, statsHistory: [], records: {}, perms: { folds:false, meas:false }, createdAt: new Date()
+            const now = new Date(); const day = now.getDay() || 7;
+            const start = new Date(now); start.setHours(0,0,0,0); start.setDate(now.getDate() - day + 1);
+            const q = query(collection(db, "workouts"), where("userId", "==", uid));
+            const snap = await getDocs(q);
+            let count = 0;
+            snap.forEach(d => { if(d.data().date.seconds * 1000 >= start.getTime()) count++; });
+            document.getElementById(cid).innerText = `${count}/${goal}`;
+            document.getElementById(bid).style.width = Math.min((count/goal)*100, 100) + '%';
+        } catch(e) {}
+    }
+};
+
+const profile = {
+    render: () => {
+        document.getElementById('profile-name').innerText = state.profile.name;
+        const img = document.getElementById('profile-img');
+        if(state.profile.photoURL) img.src = state.profile.photoURL;
+        
+        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
+        document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
+        document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
+        
+        // --- LOGICA DE VISIBILIDAD (DEFENSIVA) ---
+        const perms = state.profile.perms || {}; // Si es null, usa objeto vacio
+        
+        const btnFolds = document.getElementById('btn-toggle-folds');
+        const btnMeas = document.getElementById('btn-toggle-meas');
+        const cardChartFolds = document.getElementById('card-chart-folds');
+        const cardChartMeas = document.getElementById('card-chart-meas');
+        
+        if(btnFolds) {
+             if(perms.folds) btnFolds.classList.remove('hidden'); else btnFolds.classList.add('hidden');
+        }
+        if(cardChartFolds) {
+             if(perms.folds) cardChartFolds.classList.remove('hidden'); else cardChartFolds.classList.add('hidden');
+        }
+        
+        if(btnMeas) {
+             if(perms.meas) btnMeas.classList.remove('hidden'); else btnMeas.classList.add('hidden');
+        }
+        if(cardChartMeas) {
+             if(perms.meas) cardChartMeas.classList.remove('hidden'); else cardChartMeas.classList.add('hidden');
+        }
+
+        // FASE
+        if(state.profile.clientType === 'atleta') {
+             document.getElementById('profile-phase-selector').classList.remove('hidden');
+             if(state.profile.settings?.phase) document.getElementById('profile-phase-selector').value = state.profile.settings.phase;
+        } else {
+             document.getElementById('profile-phase-selector').classList.add('hidden');
+        }
+
+        profile.renderCharts(); 
+        profile.loadRadar();
+        profile.calculateGlobalStats(); 
+        profile.switchTab('stats');
+    },
+
+    updatePhase: async (val) => {
+        await updateDoc(doc(db, "users", state.user.uid), { "settings.phase": val });
+        app.showToast("Fase actualizada");
+    },
+
+    calculateGlobalStats: async () => {
+        try {
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+            const snap = await getDocs(q);
+            let totalTonnage = 0, totalSets = 0, totalReps = 0;
+            const totalWorkouts = snap.size;
+
+            snap.forEach(doc => {
+                const w = doc.data();
+                if(w.data && w.data.exercises) {
+                    w.data.exercises.forEach(ex => {
+                        ex.sets.forEach(s => {
+                            if(s.done && s.kg && s.reps) {
+                                totalSets++;
+                                totalReps += parseInt(s.reps);
+                                totalTonnage += (parseInt(s.kg) * parseInt(s.reps));
+                            }
+                        });
+                    });
+                }
             });
-        } catch(e) { alert(e.message); }
+
+            document.getElementById('stat-tonnage').innerText = (totalTonnage/1000).toFixed(1) + 't';
+            document.getElementById('stat-sets').innerText = totalSets;
+            document.getElementById('stat-reps').innerText = totalReps;
+            document.getElementById('stat-workouts').innerText = totalWorkouts;
+        } catch(e) { console.error("Stats calc error", e); }
     },
-    handleLoginSuccess: () => {
-        const adminBtn = document.getElementById('admin-btn');
-        if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.loadUsers(); } else { adminBtn.classList.add('hidden'); }
-        const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
-        if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
-        const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none';
+
+    switchTab: (tab) => {
+        ['stats', 'history', 'config'].forEach(t => {
+            document.getElementById(`tab-${t}`).classList.add('hidden');
+            document.getElementById(`tab-btn-${t}`).classList.remove('active');
+        });
+        document.getElementById(`tab-${tab}`).classList.remove('hidden');
+        document.getElementById(`tab-btn-${tab}`).classList.add('active');
+        if(tab === 'history') profile.loadHistory();
     },
-    navTo: (viewId) => {
-        document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.classList.add('hidden'); });
-        document.getElementById('view-'+viewId).classList.remove('hidden'); document.getElementById('view-'+viewId).classList.add('active');
-        const isAuth = ['login', 'register'].includes(viewId);
-        document.getElementById('app-header').classList.toggle('hidden', isAuth);
-        document.getElementById('bottom-nav').classList.toggle('hidden', isAuth || viewId === 'workout');
-        if(viewId === 'dashboard') dashboard.render();
-        if(viewId === 'profile') profile.render();
-        if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
-        if(viewId === 'admin') admin.refreshAll();
+    loadRadar: async () => {
+        const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+        const snap = await getDocs(q);
+        const counts = {};
+        snap.forEach(d => { if(d.data().data.exercises) d.data().data.exercises.forEach(e => counts[e.m] = (counts[e.m]||0)+1); });
+        if(window.chartHelpers) window.chartHelpers.renderRadar('radarChart', counts);
     },
-    showToast: (msg, type='normal') => {
-        const div = document.createElement('div'); div.className = `toast ${type}`;
-        div.innerHTML = `<span style="font-size:20px; margin-right:10px">${type==='gold'?'🏆':'✅'}</span> ${msg}`;
-        document.getElementById('toast-container').appendChild(div); setTimeout(()=>div.remove(), 3000);
+    
+    saveBasicStats: async () => {
+        const w = document.getElementById('stats-weight').value;
+        const f = document.getElementById('stats-fat').value;
+        const m = document.getElementById('stats-muscle').value;
+        if(!w && !f && !m) return;
+        const newEntry = { date: new Date(), weight: w, fat: f, muscle: m };
+        await profile.pushStat(newEntry);
+    },
+
+    saveFolds: async () => {
+        const folds = {
+            pecho: document.getElementById('fold-pecho').value || 0,
+            axila: document.getElementById('fold-axila').value || 0,
+            triceps: document.getElementById('fold-triceps').value || 0,
+            subesc: document.getElementById('fold-subesc').value || 0,
+            abdomen: document.getElementById('fold-abdomen').value || 0,
+            supra: document.getElementById('fold-supra').value || 0,
+            muslo: document.getElementById('fold-muslo').value || 0
+        };
+        const sumFolds = Object.values(folds).reduce((a,b)=>parseFloat(a)+parseFloat(b),0);
+        await profile.pushStat({ date: new Date(), folds: folds, sumFolds: sumFolds });
+    },
+
+    saveMeasures: async () => {
+        const measures = {
+            cuello: document.getElementById('meas-cuello').value,
+            hombros: document.getElementById('meas-hombros').value,
+            brazo: document.getElementById('meas-brazo').value,
+            cintura: document.getElementById('meas-cintura').value,
+            abdomen: document.getElementById('meas-abdomen').value,
+            cadera: document.getElementById('meas-cadera').value,
+            muslo: document.getElementById('meas-muslo').value
+        };
+        await profile.pushStat({ date: new Date(), measures: measures });
+    },
+
+    pushStat: async (entry) => {
+        await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(entry) });
+        if(!state.profile.statsHistory) state.profile.statsHistory = [];
+        state.profile.statsHistory.push(entry);
+        alert("Registrado");
+        profile.renderCharts();
+    },
+
+    saveStats: async () => { profile.saveBasicStats(); }, // Legacy wrapper
+
+    saveSettings: async () => {
+        const g = parseInt(document.getElementById('conf-weekly-goal').value); const r = parseInt(document.getElementById('conf-rest-time').value);
+        await updateDoc(doc(db, "users", state.user.uid), { "settings.weeklyGoal": g, "settings.restTime": r });
+        state.profile.settings = { weeklyGoal: g, restTime: r }; alert("Guardado"); dashboard.render();
+    },
+    loadHistory: async () => {
+        const list = document.getElementById('history-list'); list.innerHTML = 'Cargando...';
+        const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+        const snap = await getDocs(q);
+        const workouts = []; snap.forEach(d => workouts.push(d.data()));
+        workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+        list.innerHTML = '';
+        if(workouts.length===0) list.innerHTML = '<p style="text-align:center">Sin historial</p>';
+        workouts.slice(0, 20).forEach(w => {
+            const d = new Date(w.date.seconds*1000).toLocaleDateString();
+            const div = document.createElement('div'); div.className = 'history-item';
+            div.innerHTML = `<b>${d}</b> - ${w.data.name}<br>RPE: ${w.rpe}`;
+            div.onclick = () => profile.showWorkoutDetails(w);
+            list.appendChild(div);
+        });
+    },
+    showWorkoutDetails: (w) => {
+        const modal = document.getElementById('workout-detail-modal');
+        document.getElementById('wd-title').innerText = w.data.name;
+        let html = `<p>RPE: ${w.rpe} | Notas: ${w.notes}</p>`;
+        w.data.exercises.forEach(e => { html += `<h4>${e.n}</h4><ul>`; e.sets.forEach(s => html += `<li>${s.reps} reps x ${s.kg} kg</li>`); html += `</ul>`; });
+        document.getElementById('wd-content').innerHTML = html;
+        modal.classList.remove('hidden');
+    },
+    requestNotify: () => { Notification.requestPermission(); },
+    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } },
+    
+    uploadPhoto: (input) => {
+        const file = input.files[0]; if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const base64 = e.target.result;
+            const img = new Image();
+            img.src = base64;
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const scale = 300 / img.width;
+                canvas.width = 300;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const compressed = canvas.toDataURL('image/jpeg', 0.7);
+                document.getElementById('profile-img').src = compressed;
+                state.profile.photoURL = compressed;
+                await updateDoc(doc(db, "users", state.user.uid), { photoURL: compressed });
+            };
+        };
+        reader.readAsDataURL(file);
+    },
+
+    renderCharts: () => {
+        const history = state.profile.statsHistory || [];
+        history.sort((a,b) => {
+            const da = a.date.seconds ? new Date(a.date.seconds*1000) : new Date(a.date);
+            const db = b.date.seconds ? new Date(b.date.seconds*1000) : new Date(b.date);
+            return da - db;
+        });
+        
+        if(window.chartHelpers) {
+            window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
+            window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
+            window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
+            
+            // GRAFICAS EXTRA
+            const foldData = history.filter(h => h.sumFolds);
+            if(foldData.length > 0) window.chartHelpers.renderLine('foldsChart', foldData, 'sumFolds', '#FFD700');
+            
+            const measData = history.filter(h => h.measures && h.measures.cintura).map(h => ({date:h.date, cintura:h.measures.cintura}));
+            if(measData.length > 0) window.chartHelpers.renderLine('measChart', measData, 'cintura', '#00d4ff');
+        }
     }
 };
 
@@ -254,7 +445,7 @@ const admin = {
         list.innerHTML = state.allClients.filter(c => c.name.toLowerCase().includes(term)).map(c => `<div class="assign-item" onclick="window.admin.cloneRoutine('${rid}', '${c.id}')">${c.name}</div>`).join('');
     },
     
-    // --- GESTION PERMISOS COACH ---
+    // --- GESTION PERMISOS ---
     viewClient: async (uid) => {
         state.currentClientId = uid;
         const user = state.allClients.find(c => c.id === uid); if(!user) return;
@@ -264,12 +455,10 @@ const admin = {
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
-        // CARGAR PERMISOS (USAR TOGGLES)
+        // CARGAR PERMISOS (Con seguridad)
         const perms = user.perms || {};
-        const chkFolds = document.getElementById('adm-perm-folds');
-        const chkMeas = document.getElementById('adm-perm-measures');
-        if(chkFolds) chkFolds.checked = perms.folds || false;
-        if(chkMeas) chkMeas.checked = perms.meas || false;
+        if(document.getElementById('adm-perm-folds')) document.getElementById('adm-perm-folds').checked = perms.folds || false;
+        if(document.getElementById('adm-perm-measures')) document.getElementById('adm-perm-measures').checked = perms.meas || false;
         
         dashboard.calculateWeeklyProgress(uid, 'client-weekly-count', 'client-weekly-bar', user.settings?.weeklyGoal);
         admin.renderClientRoutines(uid);
@@ -297,13 +486,13 @@ const admin = {
         }
         app.navTo('client-detail');
     },
-    
+
     updateClientPerms: async () => {
         const folds = document.getElementById('adm-perm-folds').checked;
         const meas = document.getElementById('adm-perm-measures').checked;
         if(state.currentClientId) {
             await updateDoc(doc(db, "users", state.currentClientId), { perms: { folds, meas } });
-            // ACTUALIZACION LIVE SI ERES TU MISMO
+            // AUTO ACTUALIZAR SI SOY YO MISMO
             if(state.currentClientId === state.user.uid) {
                 state.profile.perms = { folds, meas };
             }
@@ -342,221 +531,124 @@ const admin = {
     deleteRoutine: async (id) => { if(confirm("¿Borrar?")) { await deleteDoc(doc(db, "routines", id)); if(state.currentClientId) admin.renderClientRoutines(state.currentClientId); else admin.renderExistingRoutines(); } }
 };
 
-const profile = {
-    render: () => {
-        document.getElementById('profile-name').innerText = state.profile.name;
-        const img = document.getElementById('profile-img');
-        if(state.profile.photoURL) img.src = state.profile.photoURL;
-        
-        document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
-        document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
-        document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
-        
-        // --- MOSTRAR SOLO SI TIENE PERMISOS (DEFENSIVO) ---
-        const perms = state.profile.perms || {}; // Si no existe, es objeto vacio
-        
-        const btnFolds = document.getElementById('btn-toggle-folds');
-        const btnMeas = document.getElementById('btn-toggle-meas');
-        const cardChartFolds = document.getElementById('card-chart-folds');
-        const cardChartMeas = document.getElementById('card-chart-meas');
-        
-        // Pliegues
-        if(perms.folds) {
-            if(btnFolds) btnFolds.classList.remove('hidden');
-            if(cardChartFolds) cardChartFolds.classList.remove('hidden');
-        } else {
-            if(btnFolds) btnFolds.classList.add('hidden');
-            if(cardChartFolds) cardChartFolds.classList.add('hidden');
-        }
-
-        // Medidas
-        if(perms.meas) {
-            if(btnMeas) btnMeas.classList.remove('hidden');
-            if(cardChartMeas) cardChartMeas.classList.remove('hidden');
-        } else {
-            if(btnMeas) btnMeas.classList.add('hidden');
-            if(cardChartMeas) cardChartMeas.classList.add('hidden');
-        }
-
-        profile.renderCharts(); profile.loadRadar();
-        profile.calculateGlobalStats(); 
-        profile.switchTab('stats');
-    },
-
-    calculateGlobalStats: async () => {
+const workoutManager = {
+    start: async (rid, rname) => {
         try {
+            const docRef = await getDoc(doc(db, "routines", rid)); const routineData = docRef.data();
+            state.lastWorkoutData = null;
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
-            const snap = await getDocs(q);
-            let totalTonnage = 0, totalSets = 0, totalReps = 0;
-            const totalWorkouts = snap.size;
+            const snap = await getDocs(q); const workouts = [];
+            snap.forEach(d => workouts.push(d.data()));
+            workouts.sort((a,b) => b.date.seconds - a.date.seconds);
+            const last = workouts.find(w => w.data.name === rname);
+            if(last) state.lastWorkoutData = last.data;
 
-            snap.forEach(doc => {
-                const w = doc.data();
-                if(w.data && w.data.exercises) {
-                    w.data.exercises.forEach(ex => {
-                        ex.sets.forEach(s => {
-                            if(s.done && s.kg && s.reps) {
-                                totalSets++;
-                                totalReps += parseInt(s.reps);
-                                totalTonnage += (parseInt(s.kg) * parseInt(s.reps));
-                            }
-                        });
-                    });
+            state.activeWorkout = { name: rname, start: Date.now(), exercises: routineData.exercises.map(ex => ({...ex, sets: ex.defaultSets.map(s => ({...s, kg:'', done:false})) })) };
+            localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout));
+            try { if(navigator.wakeLock) state.wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+            workoutManager.uiInit();
+        } catch(e) { alert("Error: " + e.message); }
+    },
+    resumeWorkout: (data) => { state.activeWorkout = data; workoutManager.uiInit(); },
+    uiInit: () => {
+        app.navTo('workout');
+        const div = document.getElementById('active-exercises-container'); div.innerHTML = '';
+        state.activeWorkout.exercises.forEach((ex, idx) => {
+            let html = '';
+            ex.sets.forEach((s, i) => {
+                let prev = '--';
+                if(state.lastWorkoutData && state.lastWorkoutData.exercises[idx] && state.lastWorkoutData.exercises[idx].sets[i]) {
+                    const p = state.lastWorkoutData.exercises[idx].sets[i]; prev = `${p.reps}x${p.kg}`;
                 }
+                const bg = s.done ? 'set-completed' : ''; 
+                const dis = s.done ? 'disabled' : ''; 
+                
+                html += `
+                <div id="set-row-${idx}-${i}" class="set-row ${bg}">
+                    <span style="color:#555">#${i+1}</span>
+                    <span style="font-size:10px; color:#888">${prev}</span>
+                    <input type="number" placeholder="reps" value="${s.reps}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)">
+                    <input type="number" placeholder="kg" value="${s.kg}" ${dis} onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)">
+                    <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div>
+                </div>`;
             });
-
-            document.getElementById('stat-tonnage').innerText = (totalTonnage/1000).toFixed(1) + 't';
-            document.getElementById('stat-sets').innerText = totalSets;
-            document.getElementById('stat-reps').innerText = totalReps;
-            document.getElementById('stat-workouts').innerText = totalWorkouts;
-        } catch(e) { console.error("Stats calc error", e); }
-    },
-
-    switchTab: (tab) => {
-        ['stats', 'history', 'config'].forEach(t => {
-            document.getElementById(`tab-${t}`).classList.add('hidden');
-            document.getElementById(`tab-btn-${t}`).classList.remove('active');
+            div.innerHTML += `<div class="exercise-card"><div style="display:flex; gap:10px; align-items:center; margin-bottom:10px"><img src="assets/muscles/${ex.img}" width="40" height="40" style="background:#000; border-radius:4px"><h3>${ex.n}</h3></div>${html}</div>`;
         });
-        document.getElementById(`tab-${tab}`).classList.remove('hidden');
-        document.getElementById(`tab-btn-${tab}`).classList.add('active');
-        if(tab === 'history') profile.loadHistory();
+        if(window.gInterval) clearInterval(window.gInterval);
+        window.gInterval = setInterval(() => {
+            if(!state.activeWorkout) return;
+            const d = Math.floor((Date.now() - state.activeWorkout.start)/1000);
+            document.getElementById('global-timer').innerText = `${Math.floor(d/60).toString().padStart(2,'0')}:${(d%60).toString().padStart(2,'0')}`;
+        }, 1000);
     },
-    loadRadar: async () => {
-        const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
-        const snap = await getDocs(q);
-        const counts = {};
-        snap.forEach(d => { if(d.data().data.exercises) d.data().data.exercises.forEach(e => counts[e.m] = (counts[e.m]||0)+1); });
-        if(window.chartHelpers) window.chartHelpers.renderRadar('radarChart', counts);
-    },
-    
-    // GUARDA TODO LO QUE ESTE RELLENO
-    saveStats: async () => {
-        const w = document.getElementById('stats-weight').value;
-        const f = document.getElementById('stats-fat').value;
-        const m = document.getElementById('stats-muscle').value;
-        
-        let newEntry = { date: new Date(), weight: w, fat: f, muscle: m };
-        
-        // Si la sección de pliegues no está oculta (es decir, el usuario la abrió)
-        const foldsDiv = document.getElementById('folds-inputs');
-        if(foldsDiv && !foldsDiv.classList.contains('hidden')) {
-             const folds = {
-                pecho: document.getElementById('fold-pecho').value || 0,
-                axila: document.getElementById('fold-axila').value || 0,
-                triceps: document.getElementById('fold-triceps').value || 0,
-                subesc: document.getElementById('fold-subesc').value || 0,
-                abdomen: document.getElementById('fold-abdomen').value || 0,
-                supra: document.getElementById('fold-supra').value || 0,
-                muslo: document.getElementById('fold-muslo').value || 0
-            };
-            const sumFolds = Object.values(folds).reduce((a,b)=>parseFloat(a)+parseFloat(b),0);
-            newEntry.folds = folds;
-            newEntry.sumFolds = sumFolds;
+    updateSet: (ei, si, f, v) => { state.activeWorkout.exercises[ei].sets[si][f] = v; localStorage.setItem(`bcn_workout_${state.user.uid}`, JSON.stringify(state.activeWorkout)); },
+    toggleSet: (ei, si) => {
+        const s = state.activeWorkout.exercises[ei].sets[si]; s.done = !s.done;
+        // FAST UPDATE UI
+        const row = document.getElementById(`set-row-${ei}-${si}`);
+        if(row) {
+            if(s.done) {
+                row.classList.add('set-completed');
+                row.querySelector('.check-box').classList.add('checked');
+                row.querySelectorAll('input').forEach(i => i.disabled=true);
+            } else {
+                row.classList.remove('set-completed');
+                row.querySelector('.check-box').classList.remove('checked');
+                row.querySelectorAll('input').forEach(i => i.disabled=false);
+            }
         }
-
-        // Si la sección de medidas no está oculta
-        const measDiv = document.getElementById('measures-inputs');
-        if(measDiv && !measDiv.classList.contains('hidden')) {
-             const measures = {
-                cuello: document.getElementById('meas-cuello').value,
-                hombros: document.getElementById('meas-hombros').value,
-                brazo: document.getElementById('meas-brazo').value,
-                cintura: document.getElementById('meas-cintura').value,
-                abdomen: document.getElementById('meas-abdomen').value,
-                cadera: document.getElementById('meas-cadera').value,
-                muslo: document.getElementById('meas-muslo').value
-            };
-            newEntry.measures = measures;
+        if(s.done) {
+            if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
+            workoutManager.startRest(state.profile.settings?.restTime || 60);
+            if(s.kg && s.reps) {
+                const oneRM = Math.round(parseFloat(s.kg) * (1 + parseInt(s.reps)/30));
+                const name = state.activeWorkout.exercises[ei].n;
+                if(!state.profile.records) state.profile.records = {};
+                if(oneRM > (state.profile.records[name] || 0)) {
+                    state.profile.records[name] = oneRM;
+                    updateDoc(doc(db, "users", state.user.uid), { [`records.${name}`]: oneRM });
+                    app.showToast(`¡RÉCORD! ${name} (${oneRM}kg)`, 'gold');
+                    if(window.confetti) window.confetti();
+                }
+            }
         }
-
-        await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
-        if(!state.profile.statsHistory) state.profile.statsHistory = [];
-        state.profile.statsHistory.push(newEntry);
-        alert("Guardado");
-        profile.renderCharts();
+        workoutManager.saveLocal();
     },
-
-    saveSettings: async () => {
-        const g = parseInt(document.getElementById('conf-weekly-goal').value); const r = parseInt(document.getElementById('conf-rest-time').value);
-        await updateDoc(doc(db, "users", state.user.uid), { "settings.weeklyGoal": g, "settings.restTime": r });
-        state.profile.settings = { weeklyGoal: g, restTime: r }; alert("Guardado"); dashboard.render();
-    },
-    loadHistory: async () => {
-        const list = document.getElementById('history-list'); list.innerHTML = 'Cargando...';
-        const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
-        const snap = await getDocs(q);
-        const workouts = []; snap.forEach(d => workouts.push(d.data()));
-        workouts.sort((a,b) => b.date.seconds - a.date.seconds);
-        list.innerHTML = '';
-        if(workouts.length===0) list.innerHTML = '<p style="text-align:center">Sin historial</p>';
-        workouts.slice(0, 20).forEach(w => {
-            const d = new Date(w.date.seconds*1000).toLocaleDateString();
-            const div = document.createElement('div'); div.className = 'history-item';
-            div.innerHTML = `<b>${d}</b> - ${w.data.name}<br>RPE: ${w.rpe}`;
-            div.onclick = () => profile.showWorkoutDetails(w);
-            list.appendChild(div);
-        });
-    },
-    showWorkoutDetails: (w) => {
-        const modal = document.getElementById('workout-detail-modal');
-        document.getElementById('wd-title').innerText = w.data.name;
-        let html = `<p>RPE: ${w.rpe} | Notas: ${w.notes}</p>`;
-        w.data.exercises.forEach(e => { html += `<h4>${e.n}</h4><ul>`; e.sets.forEach(s => html += `<li>${s.reps} reps x ${s.kg} kg</li>`); html += `</ul>`; });
-        document.getElementById('wd-content').innerHTML = html;
-        modal.classList.remove('hidden');
-    },
-    requestNotify: () => { Notification.requestPermission(); },
-    testSound: () => { if(state.sounds.beep) { state.sounds.beep.currentTime = 0; state.sounds.beep.play(); } },
-    
-    uploadPhoto: (input) => {
-        const file = input.files[0]; if(!file) return;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const base64 = e.target.result;
-            const img = new Image();
-            img.src = base64;
-            img.onload = async () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                const scale = 300 / img.width;
-                canvas.width = 300;
-                canvas.height = img.height * scale;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const compressed = canvas.toDataURL('image/jpeg', 0.7);
-                document.getElementById('profile-img').src = compressed;
-                state.profile.photoURL = compressed;
-                await updateDoc(doc(db, "users", state.user.uid), { photoURL: compressed });
-            };
+    startRest: (sec) => {
+        document.getElementById('rest-modal').classList.remove('hidden');
+        let r = sec;
+        if(state.restTimer) clearInterval(state.restTimer);
+        const tick = () => {
+            document.getElementById('rest-countdown').innerText = r;
+            if(r <= 0) {
+                if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
+                if(navigator.vibrate) navigator.vibrate([200,200]);
+                workoutManager.stopRest();
+            }
+            r--;
         };
-        reader.readAsDataURL(file);
+        tick(); state.restTimer = setInterval(tick, 1000);
     },
-
-    renderCharts: () => {
-        const history = state.profile.statsHistory || [];
-        // Orden robusto de fechas
-        history.sort((a,b) => {
-            const da = a.date.seconds ? new Date(a.date.seconds*1000) : new Date(a.date);
-            const db = b.date.seconds ? new Date(b.date.seconds*1000) : new Date(b.date);
-            return da - db;
-        });
-        
-        if(window.chartHelpers) {
-            window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
-            window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
-            window.chartHelpers.renderLine('muscleChart', history, 'muscle', '#00d4ff');
-            
-            // GRAFICAS EXTRA (SOLO SI HAY DATOS)
-            const foldData = history.filter(h => h.sumFolds);
-            if(foldData.length > 0) window.chartHelpers.renderLine('foldsChart', foldData, 'sumFolds', '#FFD700');
-            
-            // Cintura
-            const waistData = history.filter(h => h.measures && h.measures.cintura).map(h => ({
-                date: h.date, cintura: h.measures.cintura
-            }));
-            if(waistData.length > 0) window.chartHelpers.renderLine('measChart', waistData, 'cintura', '#00d4ff');
-        }
+    stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
+    cancelWorkout: () => { if(confirm("¿Cancelar?")) { localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{}); app.navTo('dashboard'); } },
+    openFinishModal: () => document.getElementById('finish-modal').classList.remove('hidden'),
+    confirmFinish: async (rpe) => {
+        document.getElementById('finish-modal').classList.add('hidden');
+        if(!state.user || !state.activeWorkout) return alert("Error: No hay sesión");
+        try {
+            await addDoc(collection(db, "workouts"), { userId: state.user.uid, userName: state.profile.name, date: new Date(), data: state.activeWorkout, rpe: rpe, notes: document.getElementById('final-notes').value });
+            localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{});
+            app.showToast("¡Entreno Guardado!", "gold"); if(window.confetti) window.confetti(); app.navTo('dashboard');
+        } catch(e) { alert("Error: " + e.message); }
     }
 };
 
-window.app = app; window.workoutManager = workoutManager; window.admin = admin; window.profile = profile; window.chartHelpers = chartHelpers;
+// 5. OBJETO PRINCIPAL (AL FINAL PARA EVITAR ERRORES DE ORDEN)
+window.app = app; 
+window.workoutManager = workoutManager; 
+window.admin = admin; 
+window.profile = profile; 
+window.chartHelpers = chartHelpers;
+
+// 6. INICIAR APP
 app.init();
