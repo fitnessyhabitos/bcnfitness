@@ -28,9 +28,7 @@
             <h2 id="page-title" style="margin:0; font-size:18px">BCN FITNESS</h2>
         </div>
         <div style="display:flex; gap:10px">
-            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')">
-                <i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i>
-            </button>
+            <button id="admin-btn" class="icon-btn hidden" onclick="window.app.navTo('admin')"><i class="material-icons-round" style="color:var(--neon-green)">admin_panel_settings</i></button>
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
@@ -119,6 +117,7 @@
                 <button class="icon-btn" onclick="window.app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
+            
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto; border-radius:50%; object-fit:cover">
                 <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
@@ -134,13 +133,12 @@
             </div>
 
             <div class="section-card">
-                <h4>Configuración Cliente</h4>
+                <h4>Configuración Atleta</h4>
                 <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px">
-                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-nutrition" onchange="window.admin.updateClientConfig()"> 🍎 Nutrición (Kcal/Agua)</label>
+                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-nutrition" onchange="window.admin.updateClientConfig()"> 🍎 Plan Nutricional</label>
                     <label class="toggle-row"><input type="checkbox" id="admin-toggle-folds" onchange="window.admin.updateClientConfig()"> 📐 Pliegues (JP7)</label>
-                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-measures" onchange="window.admin.updateClientConfig()"> 📏 Medidas (Perímetros)</label>
+                    <label class="toggle-row"><input type="checkbox" id="admin-toggle-measures" onchange="window.admin.updateClientConfig()"> 📏 Medidas</label>
                 </div>
-                
                 <div id="admin-nutrition-inputs" class="hidden">
                     <div class="row">
                         <div style="width:48%"><label style="font-size:10px">Kcal Meta</label><input type="number" id="admin-set-kcal"></div>
@@ -158,10 +156,9 @@
                     <div style="display:flex; gap:10px"><select id="client-clone-select" style="margin:0"></select><button class="btn-secondary" style="width:auto; margin:0" onclick="window.admin.cloneRoutineFromClientView()">+</button></div>
                 </div>
             </div>
+            
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
-            <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
-            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
 
@@ -193,11 +190,13 @@
                     </select>
                 </div>
             </div>
+            
             <div class="profile-tabs">
                 <button id="tab-btn-stats" class="tab-btn active" onclick="window.profile.switchTab('stats')">Progreso</button>
                 <button id="tab-btn-history" class="tab-btn" onclick="window.profile.switchTab('history')">Historial</button>
                 <button id="tab-btn-config" class="tab-btn" onclick="window.profile.switchTab('config')">Ajustes</button>
             </div>
+            
             <div id="tab-stats" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
@@ -256,6 +255,7 @@
 
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
+            
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
@@ -278,7 +278,7 @@
             <button class="btn-text" onclick="document.getElementById('help-modal').classList.add('hidden')">CERRAR</button>
         </div>
     </div>
-
+    
     <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>Editar Usuario</h3>
@@ -287,7 +287,6 @@
             <div style="display:flex; gap:10px; margin-top:15px"><button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button><button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button></div>
         </div>
     </div>
-    
     <div id="toast-container"></div>
     <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
         <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
