@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// CONFIGURACIÓN (Tus claves)
+// CONFIGURACIÓN
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,7 +17,7 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null, editingUserId: null };
+const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null };
 
 // HELPER NORMALIZAR
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -83,7 +83,7 @@ const app = {
         if(viewId === 'dashboard') dashboard.render();
         if(viewId === 'profile') profile.render();
         if(viewId === 'profile' && !document.getElementById('tab-history').classList.contains('hidden')) profile.loadHistory();
-        if(viewId === 'admin') admin.refreshAll(); // REFRESH AUTOMATICO
+        if(viewId === 'admin') admin.refreshAll();
     },
     showToast: (msg, type='normal') => {
         const div = document.createElement('div'); div.className = `toast ${type}`;
@@ -159,8 +159,6 @@ const admin = {
         else { await addDoc(collection(db, "routines"), { name, assignedTo: client, exercises: state.newRoutine, createdAt: new Date() }); alert("Guardada"); }
         admin.cancelEdit(); admin.renderExistingRoutines();
     },
-    
-    // --- GESTION USUARIOS ---
     loadUsers: async () => {
         const div = document.getElementById('admin-users-list'); div.innerHTML = 'Cargando...';
         try {
@@ -177,26 +175,20 @@ const admin = {
         } catch(e) { div.innerHTML = 'Error usuarios'; }
     },
     openEditUser: (id) => {
-        const u = state.allClients.find(c => c.id === id);
-        if(!u) return;
+        const u = state.allClients.find(c => c.id === id); if(!u) return;
         state.editingUserId = id;
         document.getElementById('edit-user-name').value = u.name;
         document.getElementById('edit-user-role').value = u.clientType || 'cliente';
         document.getElementById('edit-user-modal').classList.remove('hidden');
     },
     saveUserChanges: async () => {
-        const name = document.getElementById('edit-user-name').value;
-        const role = document.getElementById('edit-user-role').value;
+        const name = document.getElementById('edit-user-name').value; const role = document.getElementById('edit-user-role').value;
         if(state.editingUserId) {
             await updateDoc(doc(db, "users", state.editingUserId), { name: name, clientType: role, role: (role==='coach'?'coach':'athlete') });
-            alert("Guardado");
-            document.getElementById('edit-user-modal').classList.add('hidden');
-            admin.loadUsers();
+            alert("Guardado"); document.getElementById('edit-user-modal').classList.add('hidden'); admin.loadUsers();
         }
     },
     deleteUser: async (uid, name) => { if(confirm(`¿Eliminar a ${name}?`)) { await deleteDoc(doc(db, "users", uid)); admin.loadUsers(); } },
-    
-    // --- LISTA RUTINAS + COMPARTIR ---
     renderExistingRoutines: async () => {
         const div = document.getElementById('admin-routines-management'); div.innerHTML = 'Cargando...';
         const snap = await getDocs(collection(db, "routines")); div.innerHTML = '';
@@ -216,7 +208,6 @@ const admin = {
                             </div>
                         </div>
                         <div style="font-size:12px; color:#aaa; margin-top:5px">${r.exercises.length} Ejercicios</div>
-                        
                         <div id="assign-menu-${d.id}" class="assign-dropdown">
                             <input type="text" placeholder="Buscar cliente..." onkeyup="window.admin.filterAssignList(this, '${d.id}')">
                             <div class="assign-list" id="assign-list-${d.id}"></div>
@@ -229,12 +220,8 @@ const admin = {
         const menu = document.getElementById(`assign-menu-${rid}`);
         const list = document.getElementById(`assign-list-${rid}`);
         if(menu.style.display === 'block') { menu.style.display = 'none'; return; }
-        
-        // Cerrar otros
         document.querySelectorAll('.assign-dropdown').forEach(d => d.style.display = 'none');
         menu.style.display = 'block';
-        
-        // Llenar lista
         list.innerHTML = state.allClients.map(c => `<div class="assign-item" onclick="window.admin.cloneRoutine('${rid}', '${c.id}')">${c.name}</div>`).join('');
     },
     filterAssignList: (input, rid) => {
@@ -242,8 +229,6 @@ const admin = {
         const list = document.getElementById(`assign-list-${rid}`);
         list.innerHTML = state.allClients.filter(c => c.name.toLowerCase().includes(term)).map(c => `<div class="assign-item" onclick="window.admin.cloneRoutine('${rid}', '${c.id}')">${c.name}</div>`).join('');
     },
-    
-    // --- UTILS ---
     viewClient: async (uid) => {
         state.currentClientId = uid;
         const user = state.allClients.find(c => c.id === uid); if(!user) return;
@@ -402,7 +387,6 @@ const workoutManager = {
                 row.querySelectorAll('input').forEach(i => i.disabled=false);
             }
         }
-        // LOGIC
         if(s.done) {
             if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
             workoutManager.startRest(state.profile.settings?.restTime || 60);
@@ -422,21 +406,18 @@ const workoutManager = {
     },
     startRest: (sec) => {
         document.getElementById('rest-modal').classList.remove('hidden');
-        let endTime = Date.now() + (sec * 1000);
+        let r = sec;
         if(state.restTimer) clearInterval(state.restTimer);
-        
-        state.restTimer = setInterval(() => {
-            let remaining = Math.ceil((endTime - Date.now()) / 1000);
-            document.getElementById('rest-countdown').innerText = remaining;
-            
-            if(remaining <= 0) {
-                clearInterval(state.restTimer);
+        const tick = () => {
+            document.getElementById('rest-countdown').innerText = r;
+            if(r <= 0) {
                 if(state.sounds.beep) state.sounds.beep.play().catch(e=>{});
-                if(navigator.vibrate) navigator.vibrate([200,200,200]);
-                if(Notification.permission === 'granted') new Notification("¡Descanso Terminado!");
-                document.getElementById('rest-modal').classList.add('hidden');
+                if(navigator.vibrate) navigator.vibrate([200,200]);
+                workoutManager.stopRest();
             }
-        }, 1000);
+            r--;
+        };
+        tick(); state.restTimer = setInterval(tick, 1000);
     },
     stopRest: () => { clearInterval(state.restTimer); document.getElementById('rest-modal').classList.add('hidden'); },
     cancelWorkout: () => { if(confirm("¿Cancelar?")) { localStorage.removeItem(`bcn_workout_${state.user.uid}`); state.activeWorkout = null; if(state.wakeLock) state.wakeLock.release().catch(()=>{}); app.navTo('dashboard'); } },
@@ -462,8 +443,40 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         profile.renderCharts(); profile.loadRadar();
+        profile.calculateGlobalStats(); // <-- AQUI ESTA LA SUMA MAGICA QUE FALTABA
         profile.switchTab('stats');
     },
+    
+    // --- ESTA ES LA FUNCION QUE FALTABA PARA SUMAR TONELADAS Y SERIES ---
+    calculateGlobalStats: async () => {
+        try {
+            const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
+            const snap = await getDocs(q);
+            let totalTonnage = 0, totalSets = 0, totalReps = 0;
+            const totalWorkouts = snap.size;
+
+            snap.forEach(doc => {
+                const w = doc.data();
+                if(w.data && w.data.exercises) {
+                    w.data.exercises.forEach(ex => {
+                        ex.sets.forEach(s => {
+                            if(s.done && s.kg && s.reps) {
+                                totalSets++;
+                                totalReps += parseInt(s.reps);
+                                totalTonnage += (parseInt(s.kg) * parseInt(s.reps));
+                            }
+                        });
+                    });
+                }
+            });
+
+            document.getElementById('stat-tonnage').innerText = (totalTonnage/1000).toFixed(1) + 't';
+            document.getElementById('stat-sets').innerText = totalSets;
+            document.getElementById('stat-reps').innerText = totalReps;
+            document.getElementById('stat-workouts').innerText = totalWorkouts;
+        } catch(e) { console.error("Stats calc error", e); }
+    },
+
     switchTab: (tab) => {
         ['stats', 'history', 'config'].forEach(t => {
             document.getElementById(`tab-${t}`).classList.add('hidden');
