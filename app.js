@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
+// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -86,6 +87,10 @@ const app = {
         const div = document.createElement('div'); div.className = `toast ${type}`;
         div.innerHTML = `<span style="font-size:20px; margin-right:10px">${type==='gold'?'🏆':'✅'}</span> ${msg}`;
         document.getElementById('toast-container').appendChild(div); setTimeout(()=>div.remove(), 3000);
+    },
+    openHelp: (imgName) => {
+        document.getElementById('help-img').src = imgName;
+        document.getElementById('help-modal').classList.remove('hidden');
     }
 };
 
@@ -440,12 +445,59 @@ const profile = {
         document.getElementById('profile-role-badge').innerText = state.profile.clientType || state.profile.role;
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
+        
+        // --- INYECCIÓN CONDICIONAL ATLETA ---
+        const container = document.getElementById('athlete-fields');
+        if(state.profile.clientType === 'atleta') {
+            container.innerHTML = `
+                <div class="athlete-fields-container">
+                    <div class="athlete-section-title"><span>Fase Actual</span></div>
+                    <select id="athlete-phase" style="margin-bottom:15px">
+                        <option value="Volumen">Volumen</option>
+                        <option value="Mantenimiento">Mantenimiento</option>
+                        <option value="Definición">Definición</option>
+                    </select>
+
+                    <div class="athlete-section-title"><span>Pliegues (mm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('pliegues.png')">info</i></div>
+                    <div class="measure-grid">
+                        <input type="number" id="fold-pecho" placeholder="Pecho">
+                        <input type="number" id="fold-axila" placeholder="Axila">
+                        <input type="number" id="fold-triceps" placeholder="Tríceps">
+                        <input type="number" id="fold-subescapular" placeholder="Subescapular">
+                        <input type="number" id="fold-abdomen" placeholder="Abdomen">
+                        <input type="number" id="fold-suprailiaco" placeholder="Suprailíaco">
+                        <input type="number" id="fold-muslo" placeholder="Muslo">
+                    </div>
+
+                    <div class="athlete-section-title" style="margin-top:15px"><span>Perímetros (cm)</span><i class="material-icons-round info-icon" onclick="window.app.openHelp('medidas.jpg')">info</i></div>
+                    <div class="measure-grid">
+                        <input type="number" id="meas-cuello" placeholder="Cuello">
+                        <input type="number" id="meas-hombros" placeholder="Hombros">
+                        <input type="number" id="meas-brazo" placeholder="Brazo">
+                        <input type="number" id="meas-cintura" placeholder="Cintura">
+                        <input type="number" id="meas-abdomen" placeholder="Abdomen">
+                        <input type="number" id="meas-cadera" placeholder="Cadera">
+                        <input type="number" id="meas-muslo" placeholder="Muslo">
+                    </div>
+
+                    <div class="athlete-section-title" style="margin-top:15px"><span>Diario</span></div>
+                    <div class="measure-grid">
+                         <input type="number" id="daily-water" placeholder="Agua (L)">
+                         <input type="number" id="daily-kcal" placeholder="Kcal">
+                    </div>
+                </div>`;
+                
+                // Cargar ultimo valor de fase si existe
+                if(state.profile.settings?.phase) document.getElementById('athlete-phase').value = state.profile.settings.phase;
+        } else {
+            container.innerHTML = '';
+        }
+
         profile.renderCharts(); profile.loadRadar();
         profile.calculateGlobalStats(); 
         profile.switchTab('stats');
     },
     
-    // --- ESTA ES LA FUNCION QUE FALTABA PARA SUMAR TONELADAS Y SERIES ---
     calculateGlobalStats: async () => {
         try {
             const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
@@ -493,8 +545,42 @@ const profile = {
     },
     saveStats: async () => {
         const w = document.getElementById('stats-weight').value; const f = document.getElementById('stats-fat').value; const m = document.getElementById('stats-muscle').value;
+        
+        let newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
+
+        // SI ES ATLETA, GUARDAMOS EXTROS
+        if(state.profile.clientType === 'atleta') {
+            const phase = document.getElementById('athlete-phase').value;
+            // Guardar fase en settings
+            await updateDoc(doc(db, "users", state.user.uid), { "settings.phase": phase });
+            
+            // Guardar pliegues y medidas
+            const folds = {
+                pecho: document.getElementById('fold-pecho').value,
+                axila: document.getElementById('fold-axila').value,
+                triceps: document.getElementById('fold-triceps').value,
+                subescapular: document.getElementById('fold-subescapular').value,
+                abdomen: document.getElementById('fold-abdomen').value,
+                suprailiaco: document.getElementById('fold-suprailiaco').value,
+                muslo: document.getElementById('fold-muslo').value
+            };
+             const measures = {
+                cuello: document.getElementById('meas-cuello').value,
+                hombros: document.getElementById('meas-hombros').value,
+                brazo: document.getElementById('meas-brazo').value,
+                cintura: document.getElementById('meas-cintura').value,
+                abdomen: document.getElementById('meas-abdomen').value,
+                cadera: document.getElementById('meas-cadera').value,
+                muslo: document.getElementById('meas-muslo').value
+            };
+            const daily = {
+                water: document.getElementById('daily-water').value,
+                kcal: document.getElementById('daily-kcal').value
+            };
+            newEntry = {...newEntry, folds, measures, daily, phase};
+        }
+
         if(w) { 
-            const newEntry = {date:new Date(), weight:w, fat:f, muscle:m};
             await updateDoc(doc(db, "users", state.user.uid), { statsHistory: arrayUnion(newEntry) });
             if(!state.profile.statsHistory) state.profile.statsHistory = [];
             state.profile.statsHistory.push(newEntry);
