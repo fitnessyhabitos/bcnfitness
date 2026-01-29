@@ -136,9 +136,22 @@
             
             <div class="section-card">
                 <h4>Configuración Atleta</h4>
-                <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px">
-                     <label class="toggle-row"><input type="checkbox" id="adm-perm-folds" onchange="window.admin.updateClientPerms()"> 📐 Activar Pliegues (JP7)</label>
-                     <label class="toggle-row"><input type="checkbox" id="adm-perm-measures" onchange="window.admin.updateClientPerms()"> 📏 Activar Medidas</label>
+                <div style="display:flex; flex-direction:column; gap:15px; margin-bottom:10px; margin-top:15px;">
+                     <div style="display:flex; justify-content:space-between; align-items:center">
+                        <span style="font-size:14px">📐 Activar Pliegues (JP7)</span>
+                        <label class="switch">
+                          <input type="checkbox" id="adm-perm-folds" onchange="window.admin.updateClientPerms()">
+                          <span class="slider"></span>
+                        </label>
+                     </div>
+                     
+                     <div style="display:flex; justify-content:space-between; align-items:center">
+                        <span style="font-size:14px">📏 Activar Medidas</span>
+                        <label class="switch">
+                          <input type="checkbox" id="adm-perm-measures" onchange="window.admin.updateClientPerms()">
+                          <span class="slider"></span>
+                        </label>
+                     </div>
                 </div>
             </div>
 
@@ -178,11 +191,13 @@
                 <h2 id="profile-name">...</h2>
                 <span id="profile-role-badge" class="role-badge">Cliente</span>
             </div>
+            
             <div class="profile-tabs">
                 <button id="tab-btn-stats" class="tab-btn active" onclick="window.profile.switchTab('stats')">Progreso</button>
                 <button id="tab-btn-history" class="tab-btn" onclick="window.profile.switchTab('history')">Historial</button>
                 <button id="tab-btn-config" class="tab-btn" onclick="window.profile.switchTab('config')">Ajustes</button>
             </div>
+            
             <div id="tab-stats" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
@@ -193,12 +208,8 @@
                 
                 <div class="section-card">
                     <h3>Actualizar Medidas</h3>
-                    <div class="row">
-                        <input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%">
-                        <input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%">
-                        <input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%">
-                    </div>
-
+                    <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
+                    
                     <div id="extra-buttons-area" style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap">
                         <button id="btn-toggle-folds" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('folds-inputs').classList.toggle('hidden')">📉 AÑADIR PLIEGUES</button>
                         <button id="btn-toggle-meas" class="btn-text hidden" style="font-size:11px; background:#222; border:1px solid #444; border-radius:4px" onclick="document.getElementById('measures-inputs').classList.toggle('hidden')">📏 AÑADIR MEDIDAS</button>
@@ -242,6 +253,7 @@
 
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
+            
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
