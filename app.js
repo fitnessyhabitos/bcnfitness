@@ -3,7 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
-// CONFIGURACIÓN
+// CONFIGURACIÓN (Tus claves)
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -17,7 +17,7 @@ const appInstance = initializeApp(firebaseConfig);
 const auth = getAuth(appInstance);
 const db = getFirestore(appInstance);
 
-const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null };
+const state = { user: null, profile: null, activeWorkout: null, lastWorkoutData: null, restTimer: null, newRoutine: [], sounds: { beep: document.getElementById('timer-beep') }, currentClientId: null, wakeLock: null, editingRoutineId: null, editingUserId: null };
 
 // HELPER NORMALIZAR
 const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -182,7 +182,8 @@ const admin = {
         document.getElementById('edit-user-modal').classList.remove('hidden');
     },
     saveUserChanges: async () => {
-        const name = document.getElementById('edit-user-name').value; const role = document.getElementById('edit-user-role').value;
+        const name = document.getElementById('edit-user-name').value;
+        const role = document.getElementById('edit-user-role').value;
         if(state.editingUserId) {
             await updateDoc(doc(db, "users", state.editingUserId), { name: name, clientType: role, role: (role==='coach'?'coach':'athlete') });
             alert("Guardado"); document.getElementById('edit-user-modal').classList.add('hidden'); admin.loadUsers();
@@ -443,7 +444,7 @@ const profile = {
         document.getElementById('conf-weekly-goal').value = state.profile.settings?.weeklyGoal || 3;
         document.getElementById('conf-rest-time').value = state.profile.settings?.restTime || 60;
         profile.renderCharts(); profile.loadRadar();
-        profile.calculateGlobalStats(); // <-- AQUI ESTA LA SUMA MAGICA QUE FALTABA
+        profile.calculateGlobalStats(); 
         profile.switchTab('stats');
     },
     
@@ -561,6 +562,7 @@ const profile = {
     renderCharts: () => {
         const history = state.profile.statsHistory || [];
         history.sort((a,b) => (a.date.seconds || new Date(a.date)) - (b.date.seconds || new Date(b.date)));
+        
         if(window.chartHelpers) {
             window.chartHelpers.renderLine('weightChart', history, 'weight', '#39ff14');
             window.chartHelpers.renderLine('fatChart', history, 'fat', '#ff3b30');
@@ -573,7 +575,17 @@ const chartHelpers = {
     renderLine: (id, data, field, color) => {
         const ctx = document.getElementById(id); if(!ctx) return;
         const chart = Chart.getChart(ctx); if(chart) chart.destroy();
-        new Chart(ctx, { type: 'line', data: { labels: data.map(d=>(d.date.seconds?new Date(d.date.seconds*1000):new Date(d.date)).toLocaleDateString()), datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } });
+        new Chart(ctx, { 
+            type: 'line', 
+            data: { 
+                labels: data.map(d => {
+                    const date = d.date.seconds ? new Date(d.date.seconds*1000) : new Date(d.date);
+                    return date.toLocaleDateString();
+                }), 
+                datasets: [{ label: field, data: data.map(d=>d[field]), borderColor: color, tension: 0.3 }] 
+            }, 
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } }, x: { grid: { color: '#333' } } } } 
+        });
     },
     renderRadar: (id, counts) => {
         const ctx = document.getElementById(id); if(!ctx) return;
