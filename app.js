@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, updateDoc, arrayUnion, query, getDocs, where, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 import { EXERCISES } from './data.js';
 
+// CONFIGURACIÓN
 const firebaseConfig = {
     apiKey: "AIzaSyC5TuyHq_MIkhiIdgjBU6s7NM2nq6REY8U",
     authDomain: "bcn-fitness.firebaseapp.com",
@@ -52,8 +53,10 @@ const app = {
                     const docSnap = await getDoc(doc(db, "users", user.uid));
                     if(docSnap.exists()) {
                         state.profile = docSnap.data();
+                        // Inicializar campos si no existen (Defensivo)
                         if(!state.profile.settings) state.profile.settings = { weeklyGoal: 3, restTime: 60 };
                         if(!state.profile.records) state.profile.records = {};
+                        if(!state.profile.perms) state.profile.perms = { folds:false, meas:false };
                         app.handleLoginSuccess();
                     } else { signOut(auth); }
                 } catch(e) { console.error(e); }
@@ -261,7 +264,7 @@ const admin = {
         const last = user.statsHistory && user.statsHistory.length > 0 ? user.statsHistory[user.statsHistory.length-1] : {};
         document.getElementById('cd-weight').innerText = last.weight || '--'; document.getElementById('cd-fat').innerText = last.fat || '--'; document.getElementById('cd-muscle').innerText = last.muscle || '--';
         
-        // CARGAR PERMISOS CON SEGURIDAD (Defensivo)
+        // CARGAR PERMISOS (USAR TOGGLES)
         const perms = user.perms || {};
         const chkFolds = document.getElementById('adm-perm-folds');
         const chkMeas = document.getElementById('adm-perm-measures');
@@ -300,6 +303,10 @@ const admin = {
         const meas = document.getElementById('adm-perm-measures').checked;
         if(state.currentClientId) {
             await updateDoc(doc(db, "users", state.currentClientId), { perms: { folds, meas } });
+            // ACTUALIZACION LIVE SI ERES TU MISMO
+            if(state.currentClientId === state.user.uid) {
+                state.profile.perms = { folds, meas };
+            }
         }
     },
 
@@ -542,10 +549,11 @@ const profile = {
             const foldData = history.filter(h => h.sumFolds);
             if(foldData.length > 0) window.chartHelpers.renderLine('foldsChart', foldData, 'sumFolds', '#FFD700');
             
-            const measData = history.filter(h => h.measures && h.measures.cintura).map(h => ({
+            // Cintura
+            const waistData = history.filter(h => h.measures && h.measures.cintura).map(h => ({
                 date: h.date, cintura: h.measures.cintura
             }));
-            if(measData.length > 0) window.chartHelpers.renderLine('measChart', measData, 'cintura', '#00d4ff');
+            if(waistData.length > 0) window.chartHelpers.renderLine('measChart', waistData, 'cintura', '#00d4ff');
         }
     }
 };
