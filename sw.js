@@ -1,27 +1,9 @@
-self.addEventListener('push', function(event) {
-    const data = event.data ? event.data.json() : { title: 'BCN FITNESS', body: '¡Es hora de entrenar!' };
-    
+self.addEventListener('push', (event) => {
     const options = {
-        body: data.body,
+        body: event.data ? event.data.text() : '¡Es hora de tu sesión!',
         icon: 'logo.png',
-        badge: 'logo.png',
-        vibrate: [300, 100, 300, 100, 400],
-        tag: 'workout-alert',
-        renotify: true,
-        data: { url: self.registration.scope },
-        actions: [
-            { action: 'open', title: 'Ver App' }
-        ]
+        vibrate: [200, 100, 200],
+        tag: 'bcn-fitness-notif'
     };
-
-    event.waitUntil(
-        self.registration.showNotification(data.title, options)
-    );
-});
-
-self.addEventListener('notificationclick', function(event) {
-    event.notification.close();
-    event.waitUntil(
-        clients.openWindow('/')
-    );
+    event.waitUntil(self.registration.showNotification('BCN FITNESS', options));
 });
