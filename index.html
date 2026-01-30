@@ -87,7 +87,7 @@
                 <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
                 <div class="exercise-selector" style="margin-top:15px; position:relative">
                     <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." autocomplete="off">
-                    <div id="search-results-container" class="hidden" style="position:absolute; top:50px; left:0; width:100%; background:#222; border:1px solid #444; border-radius:8px; max-height:200px; overflow-y:auto; z-index:100"></div>
+                    <div id="search-results-container" class="hidden"></div>
                 </div>
                 <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
                 <div style="display:flex; gap:10px; margin-top:20px">
@@ -109,10 +109,10 @@
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
             <div class="section-card">
-                <h4 style="margin-bottom:10px">Configuración Seguimiento</h4>
-                <div style="display:flex; justify-content:space-around; background:#222; padding:10px; border-radius:8px">
-                    <label class="switch-control">JP7 <input type="checkbox" id="toggle-jp7" onchange="window.admin.updateTrackingConfig('showJP7', this.checked)"></label>
-                    <label class="switch-control">MEDIDAS <input type="checkbox" id="toggle-measures" onchange="window.admin.updateTrackingConfig('showMeasures', this.checked)"></label>
+                <h4 style="margin-bottom:10px">Habilitar en Cliente</h4>
+                <div style="display:flex; justify-content:space-around; background:#111; padding:10px; border-radius:8px">
+                    <label class="switch-c">JP7 <input type="checkbox" id="toggle-jp7" onchange="window.admin.updateTrackingConfig('showJP7', this.checked)"></label>
+                    <label class="switch-c">MEDIDAS <input type="checkbox" id="toggle-measures" onchange="window.admin.updateTrackingConfig('showMeasures', this.checked)"></label>
                 </div>
             </div>
             <div class="section-card" style="text-align:center">
@@ -136,11 +136,9 @@
                     <div style="display:flex; gap:10px"><select id="client-clone-select" style="margin:0"></select><button class="btn-secondary" style="width:auto; margin:0" onclick="window.admin.cloneRoutineFromClientView()">+</button></div>
                 </div>
             </div>
-            <div id="client-jp7-chart-box" class="section-card hidden"><h4>Evolución Pliegues (JP7)</h4><div class="chart-container"><canvas id="clientJP7Chart"></canvas></div></div>
+            <div id="client-jp7-card" class="section-card hidden"><h4>Evolución Pliegues (JP7)</h4><div class="chart-container"><canvas id="clientJP7Chart"></canvas></div></div>
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
-            <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
-            <div class="section-card"><h4>Músculo %</h4><div class="chart-container"><canvas id="clientMuscleChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
         </section>
         <section id="view-workout" class="view hidden">
@@ -156,7 +154,7 @@
         <section id="view-profile" class="view hidden">
             <div class="profile-header">
                 <div class="avatar-container" onclick="document.getElementById('avatar-input').click()">
-                    <img id="profile-img" src="assets/placeholder-body.png" class="profile-avatar" style="border-radius:50%; object-fit:cover" onerror="this.src='https://placehold.co/150/000000/39ff14?text=FOTO'">
+                    <img id="profile-img" src="assets/placeholder-body.png" class="profile-avatar" style="border-radius:50%; object-fit:cover">
                     <div class="avatar-overlay"><i class="material-icons-round">photo_camera</i></div>
                 </div>
                 <input type="file" id="avatar-input" hidden accept="image/*" onchange="window.profile.uploadPhoto(this)">
@@ -175,30 +173,28 @@
                     <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
-
                 <div id="section-jp7" class="section-card hidden">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
                         <h4>Pliegues JP7 (mm)</h4>
                         <i class="material-icons-round" style="color:var(--neon-green); cursor:pointer" onclick="window.profile.showHelp('jp7')">help_outline</i>
                     </div>
-                    <div class="compact-grid">
+                    <div class="grid-3-compact">
                         <input type="number" id="jp7-pecho" placeholder="Pecho">
                         <input type="number" id="jp7-axila" placeholder="Axila">
                         <input type="number" id="jp7-triceps" placeholder="Trícep">
-                        <input type="number" id="jp7-subes" placeholder="Subesc">
+                        <input type="number" id="jp7-subes" placeholder="Subes">
                         <input type="number" id="jp7-abdo" placeholder="Abdo">
                         <input type="number" id="jp7-supra" placeholder="Supra">
                         <input type="number" id="jp7-muslo" placeholder="Muslo">
                     </div>
-                    <button class="btn-primary" style="padding:10px; font-size:14px" onclick="window.profile.saveJP7()">GUARDAR PLIEGUES</button>
+                    <button class="btn-primary" style="padding:10px; font-size:14px; margin-top:10px" onclick="window.profile.saveJP7()">GUARDAR PLIEGUES</button>
                 </div>
-
                 <div id="section-measures" class="section-card hidden">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
-                        <h4>Medidas Corporales (cm)</h4>
+                        <h4>Medidas (cm)</h4>
                         <i class="material-icons-round" style="color:var(--neon-green); cursor:pointer" onclick="window.profile.showHelp('measures')">help_outline</i>
                     </div>
-                    <div class="compact-grid">
+                    <div class="grid-3-compact">
                         <input type="number" id="m-cuello" placeholder="Cuello">
                         <input type="number" id="m-hombro" placeholder="Hombro">
                         <input type="number" id="m-pecho" placeholder="Pecho">
@@ -207,17 +203,14 @@
                         <input type="number" id="m-cadera" placeholder="Cadera">
                         <input type="number" id="m-muslo" placeholder="Muslo">
                     </div>
-                    <button class="btn-primary" style="padding:10px; font-size:14px" onclick="window.profile.saveMeasures()">GUARDAR MEDIDAS</button>
+                    <button class="btn-primary" style="padding:10px; font-size:14px; margin-top:10px" onclick="window.profile.saveMeasures()">GUARDAR MEDIDAS</button>
                 </div>
-
                 <div class="section-card">
                     <h3>Actualizar Básicos</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
                     <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
                 </div>
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
-                <div class="section-card"><h3>Grasa (%)</h3><div class="chart-container"><canvas id="fatChart"></canvas></div></div>
-                <div class="section-card"><h3>Músculo (%)</h3><div class="chart-container"><canvas id="muscleChart"></canvas></div></div>
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
@@ -236,25 +229,15 @@
         </section>
     </main>
     <div id="help-modal" class="modal-overlay hidden" style="z-index: 10005;">
-        <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
-            <h3 id="help-title">Guía</h3>
-            <div id="help-img-container" style="background:#fff; padding:10px; border-radius:8px; margin:15px 0">
-                 [Image of an anatomical diagram showing anthropometric measurement points for Jackson-Pollock 7 skinfold protocol]
-            </div>
-            <button class="btn-secondary" onclick="document.getElementById('help-modal').classList.add('hidden')">CERRAR</button>
-        </div>
-    </div>
-    <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
-        <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
-            <h3>Editar Usuario</h3>
-            <input type="text" id="edit-user-name" placeholder="Nombre">
-            <select id="edit-user-role"><option value="cliente">Cliente</option><option value="atleta">Atleta</option><option value="coach">Coach (Admin)</option></select>
-            <div style="display:flex; gap:10px; margin-top:15px"><button class="btn-primary" onclick="window.admin.saveUserChanges()">GUARDAR</button><button class="btn-secondary" onclick="document.getElementById('edit-user-modal').classList.add('hidden')">CANCELAR</button></div>
+        <div class="modal-content" style="background:#111; padding:20px; border-radius:10px; text-align:center">
+            <h3 id="help-title">Ayuda</h3>
+            <img id="help-img" src="" style="width:100%; border-radius:8px; margin-top:10px">
+            <button class="btn-secondary" style="margin-top:15px" onclick="document.getElementById('help-modal').classList.add('hidden')">ENTENDIDO</button>
         </div>
     </div>
     <div id="toast-container"></div>
     <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;"><div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;"><h1 id="rest-countdown">00:00</h1><button onclick="window.workoutManager.stopRest()" class="btn-primary">¡SEGUIR!</button></div></div>
-    <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;"><div class="modal-content" style="background:#111; padding:20px; border-radius:10px;"><h3>¿QUÉ TAL FUE?</h3><div class="traffic-light-container"><button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button><button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button><button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button></div><textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea><button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button></div></div>
+    <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;"><div class="modal-content"><h3>¿QUÉ TAL FUE?</h3><div class="traffic-light-container"><button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button><button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button><button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button></div><textarea id="final-notes" placeholder="Notas..."></textarea><button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button></div></div>
     <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;"><div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px"><h3 style="margin:0" id="wd-title">Detalles</h3><button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button></div><div id="wd-content"></div></div></div>
     <nav id="bottom-nav" class="hidden">
         <div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
@@ -262,6 +245,5 @@
     </nav>
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
     <script type="module" src="app.js"></script>
-    <script>setTimeout(function(){var s=document.getElementById('splash-screen');if(s&&!s.classList.contains('hidden'))s.style.display='none';},3000);</script>
 </body>
 </html>
