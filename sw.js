@@ -1,9 +1,17 @@
-self.addEventListener('push', (event) => {
+self.addEventListener('push', function(event) {
+    const data = event.data ? event.data.json() : { title: 'BCN FITNESS', body: '¡Es hora de tu serie!' };
     const options = {
-        body: event.data ? event.data.text() : '¡Es hora de tu sesión!',
+        body: data.body,
         icon: 'logo.png',
-        vibrate: [200, 100, 200],
-        tag: 'bcn-fitness-notif'
+        vibrate: [300, 100, 300],
+        tag: 'workout-alert',
+        renotify: true,
+        requireInteraction: true
     };
-    event.waitUntil(self.registration.showNotification('BCN FITNESS', options));
+    event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+    event.waitUntil(clients.openWindow('/'));
 });
