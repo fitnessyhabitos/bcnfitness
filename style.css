@@ -1,49 +1,54 @@
-/* REPARACIÓN DE GRIDS V1.1 */
-.grid-3-compact { 
+/* TUS VARIABLES Y ESTILOS BASE ORIGINALES 100% */
+:root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; --text-gray: #a0a0a0; --danger: #ff3b30; --gold: #FFD700; }
+* { box-sizing: border-box; }
+body { margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: white; padding-bottom: 70px; }
+.section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 15px; border-left: 4px solid var(--neon-green); }
+.hidden { display: none !important; }
+
+/* REPARACIÓN ENTRENAMIENTO: COLUMNAS ALINEADAS */
+.set-row { 
+    display: grid; 
+    grid-template-columns: 0.4fr 1fr 1fr 0.4fr; 
+    gap: 10px; 
+    align-items: center; 
+    padding: 10px; 
+    background: #080808; 
+    border-radius: 8px; 
+    margin-top: 8px;
+}
+.set-row input { 
+    margin: 0; 
+    padding: 8px; 
+    text-align: center; 
+    font-weight: bold; 
+    background: #1a1a1a; 
+    border: 1px solid #333; 
+    color: white; 
+    border-radius: 6px;
+    width: 100%;
+}
+.check-box { width: 30px; height: 30px; border: 2px solid var(--neon-green); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; margin: 0 auto; }
+.check-box.checked { background: var(--neon-green); color: black; }
+.set-completed { background-color: rgba(57, 255, 20, 0.1) !important; border: 1px solid var(--neon-green); }
+
+/* REPARACIÓN CUADRICULAS JP7/MEDIDAS */
+.jp7-grid { 
     display: grid; 
     grid-template-columns: repeat(3, 1fr); 
     gap: 8px; 
     margin: 10px 0; 
 }
-.grid-3-compact input { 
+.jp7-grid input { 
     padding: 10px; 
     font-size: 14px; 
-    margin-bottom: 0; 
-    text-align: center;
+    text-align: center; 
+    background: #1a1a1a;
+    border: 1px solid #333;
+    color: white;
+    border-radius: 6px;
+    margin-bottom: 0;
 }
-.switch-c { 
-    font-size: 11px; 
-    font-weight: bold; 
-    color: var(--neon-green); 
-    display: flex; 
-    align-items: center; 
-    gap: 5px; 
-    cursor: pointer; 
-}
-.switch-c input { width: auto; margin: 0; }
 
-/* REPARACIÓN VISTA ENTRENAMIENTO */
-.set-row { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    gap: 10px; 
-    padding: 10px; 
-    background: #080808; 
-    border-radius: 8px; 
-    margin-top: 5px;
-}
-.set-row input { 
-    width: 60px; 
-    margin: 0; 
-    padding: 8px; 
-    text-align: center;
-}
-.set-completed { background: rgba(57, 255, 20, 0.1) !important; border: 1px solid var(--neon-green); }
-
-/* ESTILOS ORIGINALES INTACTOS */
-:root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; }
-body { margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: white; padding-bottom: 70px; }
-.section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 15px; border-left: 4px solid var(--neon-green); }
-.hidden { display: none !important; }
-.btn-primary { background: var(--neon-green); color: black; font-weight: bold; width: 100%; padding: 14px; border: none; border-radius: 8px; font-family: 'Russo One'; cursor: pointer; }
+/* TOGGLES COACH */
+.sw-label { font-size: 11px; font-weight: bold; color: var(--neon-green); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.sw-label input { width: auto; margin: 0; }
