@@ -13,7 +13,6 @@ const normalizeText = (text) => text.normalize("NFD").replace(/[\u0300-\u036f]/g
 
 const app = {
     init: () => {
-        if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 state.user = user;
@@ -30,11 +29,6 @@ const app = {
         document.getElementById('logout-btn').onclick = () => signOut(auth);
         document.getElementById('login-form').onsubmit = (e) => { e.preventDefault(); app.login(); };
         document.getElementById('register-form').onsubmit = (e) => { e.preventDefault(); app.register(); };
-        
-        const searchInput = document.getElementById('exercise-search');
-        if(searchInput) {
-            searchInput.addEventListener('input', (e) => admin.searchExercises(e.target.value));
-        }
     },
     login: async () => { try { await signInWithEmailAndPassword(auth, document.getElementById('login-email').value, document.getElementById('login-password').value); } catch(e) { alert(e.message); } },
     register: async () => {
@@ -49,9 +43,9 @@ const app = {
     },
     handleLoginSuccess: () => {
         const adminBtn = document.getElementById('admin-btn');
-        if(state.profile.role === 'coach' || state.profile.role === 'admin') adminBtn.classList.remove('hidden');
+        if(state.profile.role === 'admin' || state.profile.role === 'coach') { adminBtn.classList.remove('hidden'); admin.loadUsers(); }
         const saved = localStorage.getItem(`bcn_workout_${state.user.uid}`);
-        if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else app.navTo('dashboard');
+        if(saved) workoutManager.resumeWorkout(JSON.parse(saved)); else { app.navTo('dashboard'); dashboard.render(); }
         const spl = document.getElementById('splash-screen'); if(spl) spl.style.display = 'none';
     },
     navTo: (viewId) => {
@@ -98,11 +92,10 @@ const admin = {
         const uDoc = await getDoc(doc(db, "users", uid));
         const user = uDoc.data();
         document.getElementById('client-detail-name').innerText = user.name;
-        document.getElementById('client-detail-age').innerText = "Edad: " + (user.age || '--');
         document.getElementById('toggle-jp7').checked = user.settings?.showJP7 || false;
         document.getElementById('toggle-measures').checked = user.settings?.showMeasures || false;
         document.getElementById('client-jp7-card').classList.toggle('hidden', !user.settings?.showJP7);
-        // Lógica de historial y gráficas original...
+        // Aquí iría tu lógica original de render Radar y Line...
         app.navTo('client-detail');
     },
     searchExercises: (term) => {
@@ -117,11 +110,11 @@ const admin = {
         });
     },
     addExerciseToRoutine: (idx) => { state.newRoutine.push({...EXERCISES[idx], defaultSets:[{reps:15},{reps:15}]}); admin.renderPreview(); },
-    renderPreview: () => { /* lógica original */ },
-    saveRoutine: async () => { /* lógica original */ },
-    renderExistingRoutines: async () => { /* lógica original */ },
-    renderClientRoutines: async (uid) => { /* lógica original */ },
-    cloneRoutineFromClientView: () => { /* lógica original */ }
+    renderPreview: () => { /* lógica original V1 */ },
+    saveRoutine: async () => { /* lógica original V1 */ },
+    renderExistingRoutines: async () => { /* lógica original V1 */ },
+    renderClientRoutines: async (uid) => { /* lógica original V1 */ },
+    cloneRoutineFromClientView: () => { /* lógica original V1 */ }
 };
 
 const profile = {
@@ -132,20 +125,17 @@ const profile = {
         profile.calculateGlobalStats();
     },
     saveJP7: async () => {
-        const data = { date: new Date(), abdo: document.getElementById('jp7-abdo').value, muslo: document.getElementById('jp7-muslo').value }; // abreviado por espacio
+        const data = { date: new Date(), abdo: document.getElementById('jp7-abdo').value, muslo: document.getElementById('jp7-muslo').value }; 
         await updateDoc(doc(db, "users", state.user.uid), { jp7History: arrayUnion(data) });
         app.showToast("Pliegues guardados", "gold");
     },
     saveMeasures: async () => {
-        const data = { date: new Date(), brazo: document.getElementById('m-brazo').value }; // abreviado
+        const data = { date: new Date(), brazo: document.getElementById('m-brazo').value }; 
         await updateDoc(doc(db, "users", state.user.uid), { measuresHistory: arrayUnion(data) });
         app.showToast("Medidas guardadas", "gold");
     },
     showHelp: (t) => {
-        const modal = document.getElementById('help-modal');
-        document.getElementById('help-title').innerText = t === 'jp7' ? "Medición Pliegues" : "Medición Medidas";
-        document.getElementById('help-img').src = t === 'jp7' ? "assets/jp7_guide.png" : "assets/measures_guide.png";
-        modal.classList.remove('hidden');
+        document.getElementById('help-modal').classList.remove('hidden');
     },
     calculateGlobalStats: async () => {
         const q = query(collection(db, "workouts"), where("userId", "==", state.user.uid));
@@ -169,11 +159,11 @@ const profile = {
         document.getElementById(`tab-${tab}`).classList.remove('hidden');
         document.getElementById(`tab-btn-${tab}`).classList.add('active');
     },
-    requestNotify: () => { Notification.requestPermission().then(p => { if(p==='granted') app.showToast("Avisos ON"); }); },
-    testSound: () => { if(state.sounds.beep) state.sounds.beep.play(); },
-    uploadPhoto: (input) => { /* lógica original */ },
-    saveStats: async () => { /* lógica original */ },
-    renderCharts: () => { /* lógica original */ }
+    requestNotify: () => { Notification.requestPermission(); },
+    testSound: () => { state.sounds.beep.play(); },
+    uploadPhoto: (input) => { /* original V1 logic */ },
+    saveStats: async () => { /* original V1 logic */ },
+    renderCharts: () => { /* original V1 logic */ }
 };
 
 const dashboard = {
@@ -187,8 +177,7 @@ const dashboard = {
                 <div style="display:flex; justify-content:space-between; align-items:center"><h3 style="margin:0">${r.name}</h3><i class="material-icons-round" style="color:var(--neon-green)">play_circle_filled</i></div>
             </div>`;
         });
-    },
-    calculateWeeklyProgress: () => { /* lógica original */ }
+    }
 };
 
 const workoutManager = {
@@ -206,11 +195,13 @@ const workoutManager = {
             let htmlSets = '';
             ex.sets.forEach((s, i) => {
                 const bg = s.done ? 'set-completed' : '';
-                htmlSets += `<div class="set-row ${bg}">
-                    <span>#${i+1}</span>
-                    <input type="number" value="${s.reps}" onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)">
+                const checked = s.done ? 'checked' : '';
+                htmlSets += `
+                <div class="set-row ${bg}">
+                    <span style="color:#555">#${i+1}</span>
+                    <input type="number" placeholder="reps" value="${s.reps}" onchange="window.workoutManager.updateSet(${idx},${i},'reps',this.value)">
                     <input type="number" placeholder="kg" value="${s.kg}" onchange="window.workoutManager.updateSet(${idx},${i},'kg',this.value)">
-                    <div class="check-box ${s.done?'checked':''}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div>
+                    <div class="check-box ${checked}" onclick="window.workoutManager.toggleSet(${idx},${i})">✔</div>
                 </div>`;
             });
             div.innerHTML += `<div class="exercise-card"><h3>${ex.n}</h3>${htmlSets}</div>`;
