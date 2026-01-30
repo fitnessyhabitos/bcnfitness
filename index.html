@@ -17,10 +17,9 @@
 </head>
 <body>
     <div id="splash-screen">
-        <img src="logo.png" alt="BCN Fitness" class="pulse-logo" onerror="this.src='https://placehold.co/150/000000/39ff14?text=BCN'">
+        <img src="logo.png" alt="BCN Fitness" class="pulse-logo">
         <h1 style="color:white; margin-top:20px; font-family:'Russo One'">BCN FITNESS</h1>
     </div>
-
     <header id="app-header" class="hidden">
         <div style="display:flex; align-items:center; gap:10px">
             <img src="logo.png" alt="Logo" style="height:30px; border-radius:50%">
@@ -31,7 +30,6 @@
             <button id="logout-btn" class="icon-btn"><i class="material-icons-round">logout</i></button>
         </div>
     </header>
-
     <main id="main-container">
         <section id="view-login" class="view active">
             <div class="login-wrapper" style="text-align:center; padding-top:20px">
@@ -92,13 +90,20 @@
                 <select id="assign-client-select"><option value="" disabled selected>Selecciona...</option></select>
                 <div class="exercise-selector" style="margin-top:15px; position:relative">
                     <input type="search" id="exercise-search" placeholder="🔍 Buscar ejercicio..." autocomplete="off">
-                    <div id="search-results-container" class="hidden" style="position:absolute; top:50px; left:0; width:100%; background:#222; border:1px solid #444; border-radius:8px; max-height:200px; overflow-y:auto; z-index:100"></div>
+                    <div id="search-results-container" class="hidden"></div>
                 </div>
                 <div id="admin-routine-preview" style="margin-top:20px; border-top:1px solid #333; padding-top:10px"></div>
                 <div style="display:flex; gap:10px; margin-top:20px">
                     <button class="btn-primary" id="save-routine-btn" onclick="window.admin.saveRoutine()">GUARDAR</button>
                     <button class="btn-secondary hidden" id="cancel-edit-btn" onclick="window.admin.cancelEdit()">CANCELAR</button>
                 </div>
+            </div>
+            <div class="section-card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+                    <h4>Todas las Rutinas</h4>
+                    <i class="material-icons-round" onclick="window.admin.renderExistingRoutines()" style="cursor:pointer; color:var(--neon-green)">refresh</i>
+                </div>
+                <div id="admin-routines-management" class="users-list-container"></div>
             </div>
         </section>
 
@@ -107,15 +112,13 @@
                 <button class="icon-btn" onclick="window.app.navTo('admin')"><i class="material-icons-round">arrow_back</i></button>
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
-            
             <div class="section-card">
-                <h4>Configuración Seguimiento</h4>
+                <h4>Configuración de Seguimiento</h4>
                 <div style="display:flex; justify-content:space-around; padding:10px;">
                     <label class="switch-label">JP7 <input type="checkbox" id="toggle-jp7" onchange="window.admin.updateTrackingConfig('showJP7', this.checked)"></label>
                     <label class="switch-label">Medidas <input type="checkbox" id="toggle-measures" onchange="window.admin.updateTrackingConfig('showMeasures', this.checked)"></label>
                 </div>
             </div>
-
             <div class="section-card" style="text-align:center">
                 <img id="client-detail-img" src="assets/placeholder-body.png" class="profile-avatar" style="width:80px; height:80px; margin:0 auto; border-radius:50%; object-fit:cover">
                 <p id="client-detail-age" style="color:#888; font-size:12px; margin-top:5px">Edad: --</p>
@@ -125,11 +128,9 @@
                     <div><strong id="cd-muscle" style="color:#00d4ff">--</strong><div style="font-size:10px">MÚSC</div></div>
                 </div>
             </div>
-
             <div id="client-jp7-charts" class="hidden">
                 <div class="section-card"><h4>Evolución Pliegues (JP7)</h4><div class="chart-container"><canvas id="clientJP7Chart"></canvas></div></div>
             </div>
-            
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Historial</h4><div id="client-detail-history" class="history-container"></div></div>
@@ -138,7 +139,7 @@
         <section id="view-profile" class="view hidden">
             <div class="profile-header">
                 <div class="avatar-container" onclick="document.getElementById('avatar-input').click()">
-                    <img id="profile-img" src="assets/placeholder-body.png" class="profile-avatar" style="border-radius:50%; object-fit:cover" onerror="this.src='https://placehold.co/150/000000/39ff14?text=FOTO'">
+                    <img id="profile-img" src="assets/placeholder-body.png" class="profile-avatar" style="border-radius:50%; object-fit:cover">
                     <div class="avatar-overlay"><i class="material-icons-round">photo_camera</i></div>
                 </div>
                 <input type="file" id="avatar-input" hidden accept="image/*" onchange="window.profile.uploadPhoto(this)">
@@ -150,17 +151,17 @@
                 <button id="tab-btn-history" class="tab-btn" onclick="window.profile.switchTab('history')">Historial</button>
                 <button id="tab-btn-config" class="tab-btn" onclick="window.profile.switchTab('config')">Ajustes</button>
             </div>
-
             <div id="tab-stats" class="tab-content">
                 <div class="stats-grid">
                     <div class="stat-box"><small>TONELADAS</small><strong id="stat-tonnage">0t</strong></div>
+                    <div class="stat-box"><small>SERIES</small><strong id="stat-sets">0</strong></div>
+                    <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
-
                 <div class="section-card">
-                    <h3>Actualizar Básicos</h3>
+                    <h3>Actualizar Medidas</h3>
                     <div class="row"><input type="number" id="stats-weight" placeholder="Peso (kg)" style="width:32%"><input type="number" id="stats-fat" placeholder="% Grasa" style="width:32%"><input type="number" id="stats-muscle" placeholder="% Músc" style="width:32%"></div>
-                    <button class="btn-primary" style="padding:12px; font-size:14px" onclick="window.profile.saveStats()">REGISTRAR PESO</button>
+                    <button class="btn-primary" onclick="window.profile.saveStats()">REGISTRAR</button>
                 </div>
 
                 <div id="section-jp7" class="section-card hidden">
@@ -171,18 +172,18 @@
                     <div class="grid-3">
                         <input type="number" id="jp7-pecho" placeholder="Pecho">
                         <input type="number" id="jp7-axila" placeholder="Axila">
-                        <input type="number" id="jp7-triceps" placeholder="Tríceps">
-                        <input type="number" id="jp7-subes" placeholder="Subescap.">
-                        <input type="number" id="jp7-abdo" placeholder="Abdo.">
-                        <input type="number" id="jp7-supra" placeholder="Suprail.">
+                        <input type="number" id="jp7-triceps" placeholder="Trícep">
+                        <input type="number" id="jp7-subes" placeholder="Subes">
+                        <input type="number" id="jp7-abdo" placeholder="Abdo">
+                        <input type="number" id="jp7-supra" placeholder="Supra">
                         <input type="number" id="jp7-muslo" placeholder="Muslo">
                     </div>
-                    <button class="btn-primary" style="padding:10px; font-size:14px" onclick="window.profile.saveJP7()">GUARDAR PLIEGUES</button>
+                    <button class="btn-primary mini" onclick="window.profile.saveJP7()">GUARDAR PLIEGUES</button>
                 </div>
 
                 <div id="section-measures" class="section-card hidden">
                     <div style="display:flex; justify-content:space-between; align-items:center">
-                        <h3>Medidas (cm)</h3>
+                        <h3>Medidas Corporales (cm)</h3>
                         <i class="material-icons-round" style="color:var(--neon-green); cursor:pointer" onclick="window.profile.showHelp('measures')">help_outline</i>
                     </div>
                     <div class="grid-3">
@@ -194,17 +195,16 @@
                         <input type="number" id="m-cadera" placeholder="Cadera">
                         <input type="number" id="m-muslo" placeholder="Muslo">
                     </div>
-                    <button class="btn-primary" style="padding:10px; font-size:14px" onclick="window.profile.saveMeasures()">GUARDAR MEDIDAS</button>
+                    <button class="btn-primary mini" onclick="window.profile.saveMeasures()">GUARDAR MEDIDAS</button>
                 </div>
 
                 <div class="section-card"><h3>Peso (kg)</h3><div class="chart-container"><canvas id="weightChart"></canvas></div></div>
                 <div class="section-card"><h3>Mapa Muscular</h3><div class="chart-container"><canvas id="radarChart"></canvas></div></div>
             </div>
-
             <div id="tab-history" class="tab-content hidden"><div id="history-list" class="history-container">Cargando...</div></div>
             <div id="tab-config" class="tab-content hidden">
                 <div class="section-card">
-                    <h3>Ajustes</h3>
+                    <h3>Configuración</h3>
                     <label>Objetivo Semanal (Días):</label><input type="number" id="conf-weekly-goal" placeholder="4">
                     <label>Tiempo Descanso (seg):</label><input type="number" id="conf-rest-time" placeholder="60">
                     <button class="btn-secondary" onclick="window.profile.saveSettings()">GUARDAR CAMBIOS</button>
@@ -230,41 +230,23 @@
 
     <div id="help-modal" class="modal-overlay hidden" style="z-index:11000">
         <div class="modal-content">
-            <h3 id="help-title">Guía de Medición</h3>
-            <div id="help-img-container">
-                 
-                 <p style="font-size:12px; color:#888; margin-top:10px">Toma las medidas siempre en el lado derecho y en ayunas para mayor precisión.</p>
+            <h3 id="help-title">Guía</h3>
+            <div id="help-img-container" style="background:white; padding:10px; border-radius:8px;">
+                
             </div>
-            <button class="btn-secondary" onclick="document.getElementById('help-modal').classList.add('hidden')">ENTENDIDO</button>
+            <button class="btn-secondary" style="margin-top:15px" onclick="document.getElementById('help-modal').classList.add('hidden')">CERRAR</button>
         </div>
     </div>
 
-    <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;">
-        <div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;">
-            <h1 id="rest-countdown">00:00</h1>
-            <button onclick="window.workoutManager.stopRest()" class="btn-primary">¡SEGUIR!</button>
-        </div>
-    </div>
-
-    <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;">
-        <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
-            <h3>¿QUÉ TAL FUE?</h3>
-            <div class="traffic-light-container">
-                <button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button>
-                <button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button>
-                <button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button>
-            </div>
-            <textarea id="final-notes" placeholder="Notas..." style="width:100%"></textarea>
-            <button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button>
-        </div>
-    </div>
-
+    <div id="toast-container"></div>
+    <div id="rest-modal" class="modal-overlay hidden" style="z-index: 10000;"><div class="modal-content" style="background:black; border:2px solid var(--neon-green); padding:30px; border-radius:20px;"><h1 id="rest-countdown">00:00</h1><button onclick="window.workoutManager.stopRest()" class="btn-primary">¡SEGUIR!</button></div></div>
+    <div id="finish-modal" class="modal-overlay hidden" style="z-index: 9998;"><div class="modal-content"><h3>¿QUÉ TAL FUE?</h3><div class="traffic-light-container"><button class="traffic-btn green" onclick="window.workoutManager.confirmFinish('Ligero')">😊 FÁCIL</button><button class="traffic-btn orange" onclick="window.workoutManager.confirmFinish('Moderado')">😐 MEDIO</button><button class="traffic-btn red" onclick="window.workoutManager.confirmFinish('Intenso')">🔥 DIFICIL</button></div><textarea id="final-notes" placeholder="Notas..."></textarea><button onclick="document.getElementById('finish-modal').classList.add('hidden')" class="btn-text">Volver</button></div></div>
+    <div id="workout-detail-modal" class="modal-overlay hidden" style="z-index: 9997;"><div class="modal-content" style="width:95%; max-height:80vh; overflow-y:auto; text-align:left"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px"><h3 style="margin:0" id="wd-title">Detalles</h3><button onclick="document.getElementById('workout-detail-modal').classList.add('hidden')" class="icon-btn"><i class="material-icons-round">close</i></button></div><div id="wd-content"></div></div></div>
+    
     <nav id="bottom-nav" class="hidden">
         <div onclick="window.app.navTo('dashboard')" class="nav-item active"><i class="material-icons-round">dashboard</i><span>Inicio</span></div>
         <div onclick="window.app.navTo('profile')" class="nav-item"><i class="material-icons-round">person</i><span>Perfil</span></div>
     </nav>
-
-    <div id="toast-container"></div>
     <audio id="timer-beep" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
     <script type="module" src="app.js"></script>
 </body>
