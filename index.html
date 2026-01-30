@@ -109,10 +109,10 @@
                 <h3 id="client-detail-name" style="margin:0; font-size:16px">Cliente</h3><div style="width:28px"></div>
             </div>
             <div class="section-card">
-                <h4 style="margin-bottom:10px">Habilitar Seguimiento</h4>
+                <h4 style="margin-bottom:10px">Configuración Seguimiento</h4>
                 <div style="display:flex; justify-content:space-around; background:#222; padding:10px; border-radius:8px">
-                    <label class="toggle-control">JP7 <input type="checkbox" id="toggle-jp7" onchange="window.admin.updateTrackingConfig('showJP7', this.checked)"></label>
-                    <label class="toggle-control">MEDIDAS <input type="checkbox" id="toggle-measures" onchange="window.admin.updateTrackingConfig('showMeasures', this.checked)"></label>
+                    <label class="switch-control">JP7 <input type="checkbox" id="toggle-jp7" onchange="window.admin.updateTrackingConfig('showJP7', this.checked)"></label>
+                    <label class="switch-control">MEDIDAS <input type="checkbox" id="toggle-measures" onchange="window.admin.updateTrackingConfig('showMeasures', this.checked)"></label>
                 </div>
             </div>
             <div class="section-card" style="text-align:center">
@@ -136,7 +136,7 @@
                     <div style="display:flex; gap:10px"><select id="client-clone-select" style="margin:0"></select><button class="btn-secondary" style="width:auto; margin:0" onclick="window.admin.cloneRoutineFromClientView()">+</button></div>
                 </div>
             </div>
-            <div id="client-jp7-card" class="section-card hidden"><h4>Evolución Pliegues (JP7)</h4><div class="chart-container"><canvas id="clientJP7Chart"></canvas></div></div>
+            <div id="client-jp7-chart-box" class="section-card hidden"><h4>Evolución Pliegues (JP7)</h4><div class="chart-container"><canvas id="clientJP7Chart"></canvas></div></div>
             <div class="section-card"><h4>Mapa Muscular</h4><div class="chart-container"><canvas id="clientRadarChart"></canvas></div></div>
             <div class="section-card"><h4>Evolución Peso</h4><div class="chart-container"><canvas id="clientWeightChart"></canvas></div></div>
             <div class="section-card"><h4>Grasa %</h4><div class="chart-container"><canvas id="clientFatChart"></canvas></div></div>
@@ -175,10 +175,10 @@
                     <div class="stat-box"><small>REPS</small><strong id="stat-reps">0</strong></div>
                     <div class="stat-box"><small>ENTRENOS</small><strong id="stat-workouts">0</strong></div>
                 </div>
-                
+
                 <div id="section-jp7" class="section-card hidden">
-                    <div style="display:flex; justify-content:space-between; align-items:center">
-                        <h4 style="margin:0">Pliegues JP7 (mm)</h4>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+                        <h4>Pliegues JP7 (mm)</h4>
                         <i class="material-icons-round" style="color:var(--neon-green); cursor:pointer" onclick="window.profile.showHelp('jp7')">help_outline</i>
                     </div>
                     <div class="compact-grid">
@@ -194,8 +194,8 @@
                 </div>
 
                 <div id="section-measures" class="section-card hidden">
-                    <div style="display:flex; justify-content:space-between; align-items:center">
-                        <h4 style="margin:0">Medidas Corporales (cm)</h4>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+                        <h4>Medidas Corporales (cm)</h4>
                         <i class="material-icons-round" style="color:var(--neon-green); cursor:pointer" onclick="window.profile.showHelp('measures')">help_outline</i>
                     </div>
                     <div class="compact-grid">
@@ -235,17 +235,15 @@
             </div>
         </section>
     </main>
-
     <div id="help-modal" class="modal-overlay hidden" style="z-index: 10005;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
-            <h3 id="help-title">Guía de Medición</h3>
+            <h3 id="help-title">Guía</h3>
             <div id="help-img-container" style="background:#fff; padding:10px; border-radius:8px; margin:15px 0">
-                 
+                 [Image of an anatomical diagram showing anthropometric measurement points for Jackson-Pollock 7 skinfold protocol]
             </div>
             <button class="btn-secondary" onclick="document.getElementById('help-modal').classList.add('hidden')">CERRAR</button>
         </div>
     </div>
-
     <div id="edit-user-modal" class="modal-overlay hidden" style="z-index: 10002;">
         <div class="modal-content" style="background:#111; padding:20px; border-radius:10px;">
             <h3>Editar Usuario</h3>
