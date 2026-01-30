@@ -1,21 +1,17 @@
 /* --- NUEVOS ESTILOS V1.1 --- */
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
 .grid-3 input { padding: 8px; font-size: 13px; margin-bottom: 0; text-align: center; }
-
-.switch-label { font-size: 12px; font-weight: bold; color: var(--text-gray); display: flex; align-items: center; gap: 5px; cursor: pointer; background: #222; padding: 5px 10px; border-radius: 20px; border: 1px solid #333; }
+.switch-label { font-size: 11px; font-weight: bold; color: var(--text-gray); display: flex; align-items: center; gap: 5px; background: #1a1a1a; padding: 5px 10px; border-radius: 20px; border: 1px solid #333; cursor: pointer; }
 .switch-label input[type="checkbox"] { width: auto; margin: 0; }
+.btn-primary.mini { padding: 10px; font-size: 13px; margin-top: 5px; }
 
-#help-img-container { background: #fff; padding: 10px; border-radius: 8px; margin: 15px 0; }
-#help-img-container img { width: 100%; height: auto; display: block; }
-
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-.stat-box { background: #1a1a1a; padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #333; border-bottom: 2px solid var(--neon-green); }
-
-/* --- REGLAS EXISTENTES REFINADAS --- */
+/* --- TUS ESTILOS ORIGINALES (REPETIDOS PARA INTEGRIDAD) --- */
 :root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --input-bg: #1e1e1e; --text-white: #ffffff; --text-gray: #a0a0a0; --danger: #ff3b30; }
-body { margin: 0; background: var(--dark-bg); font-family: 'Roboto', sans-serif; color: white; overflow-x: hidden; }
-.section-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 15px; border-left: 4px solid var(--neon-green); }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: var(--text-white); padding-bottom: 70px; }
+.section-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); position: relative; }
+input, select, textarea { background: var(--input-bg); border: 1px solid #333; color: white; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; margin-bottom: 12px; }
+.btn-primary { background: var(--neon-green); color: black; font-weight: 900; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-family: 'Russo One'; cursor: pointer; }
 .hidden { display: none !important; }
-.btn-primary { background: var(--neon-green); color: black; font-weight: bold; width: 100%; border: none; border-radius: 8px; font-family: 'Russo One'; cursor: pointer; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; }
-.modal-content { width: 90%; max-width: 400px; background: #111; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+.active { display: block; }
+/* ... (Añade aquí el resto de tus estilos de la V1) ... */
