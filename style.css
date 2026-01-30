@@ -1,27 +1,31 @@
-:root { --neon-green: #39ff14; --dark-bg: #000; --card-bg: #121212; }
-body { margin: 0; background: var(--dark-bg); font-family: 'Roboto', sans-serif; color: white; padding-bottom: 80px; }
+:root { --neon-green: #39ff14; --dark-bg: #000000; --card-bg: #121212; --text-gray: #a0a0a0; }
+body { margin: 0; background-color: var(--dark-bg); font-family: 'Roboto', sans-serif; color: white; padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 .hidden { display: none !important; }
-.view { padding: 20px; animation: fadeIn 0.3s ease; }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.view { padding: 20px; animation: fadeUp 0.3s forwards; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ELEMENTOS DE INTERFAZ */
-header { padding: 15px; background: var(--card-bg); border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
-.section-card { background: var(--card-bg); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 4px solid var(--neon-green); }
-.btn-primary { background: var(--neon-green); color: black; border: none; padding: 15px; border-radius: 8px; width: 100%; font-family: 'Russo One'; cursor: pointer; }
+/* HEADER & NAV ORIGINAL */
+#app-header { height: 60px; position: fixed; top: 0; left: 0; width: 100%; background: rgba(18,18,18,0.98); border-bottom: 1px solid #333; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+#bottom-nav { height: 70px; position: fixed; bottom: 0; left: 0; width: 100%; background: rgba(18,18,18,0.98); border-top: 1px solid #333; z-index: 100; display: flex; justify-content: space-around; align-items: center; }
 
-/* CREADOR DE PLANES */
-.sets-editor { display: flex; gap: 5px; overflow-x: auto; padding: 10px 0; }
-.sets-editor input { width: 40px !important; text-align: center; border: 1px solid var(--neon-green) !important; background: #222 !important; color: var(--neon-green); font-weight: bold; }
+/* CARDS */
+.section-card, .exercise-card { background: var(--card-bg); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--neon-green); position: relative; }
+.btn-primary { background: var(--neon-green); color: black; font-weight: 900; width: 100%; padding: 16px; border: none; border-radius: 8px; font-family: 'Russo One'; cursor: pointer; }
 
-/* NOTIFICACIÓN DESCANSO */
-.rest-content { text-align: center; border: 2px solid var(--neon-green); border-radius: 20px; padding: 40px; }
-#rest-countdown { font-size: 100px; font-family: 'Russo One'; color: var(--neon-green); margin: 10px 0; }
+/* REST TIMER IMPACTANTE */
+.rest-content { text-align: center; border: 2px solid var(--neon-green); padding: 40px; border-radius: 20px; }
+#rest-countdown { font-size: 100px; font-family: 'Russo One'; color: var(--neon-green); }
 
-/* MODAL RPE */
+/* EDITOR DE REPS */
+.edit-sets-grid { display: flex; gap: 5px; overflow-x: auto; padding: 10px 0; }
+.edit-sets-grid input { width: 45px; background: #222; border: 1px solid var(--neon-green); color: var(--neon-green); text-align: center; border-radius: 4px; }
+
+/* SEARCH */
+#search-results-container { background: #1a1a1a; border: 1px solid var(--neon-green); border-radius: 8px; max-height: 250px; overflow-y: auto; }
+.search-result-item { display: flex; align-items: center; gap: 10px; padding: 10px; border-bottom: 1px solid #333; cursor: pointer; }
+.search-result-item img { width: 40px; border-radius: 4px; }
+
+/* RPE */
 .traffic-light-container { display: flex; gap: 10px; margin-bottom: 15px; }
-.traffic-btn { flex: 1; padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; }
+.traffic-btn { flex: 1; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
 .green { background: #4cd964; } .orange { background: #ffcc00; } .red { background: #ff3b30; color: white; }
-
-/* BUSCADOR */
-#search-results-container { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; max-height: 200px; overflow-y: auto; position: absolute; width: 100%; z-index: 50; }
-.search-item { padding: 12px; border-bottom: 1px solid #222; cursor: pointer; }
